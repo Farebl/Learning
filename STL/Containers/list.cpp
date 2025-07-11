@@ -17,7 +17,6 @@ class List{
     struct Node: BaseNode{
         T value;
     };
-    BaseNode fake_node_;
 
 #if (__cplusplus <=  201402L)
     using NodeAllocator = typename Allocator::template rebind<Node>::other;
@@ -27,6 +26,7 @@ class List{
 #endif
     
     NodeAllocator alloc_;
+    BaseNode fake_node_;
     size_t sz_;
    
 public:
@@ -109,26 +109,79 @@ public:
     using reverse_iterator       = std::reverse_iterator<iterator>;
     using const_reverse_iterator = std::reverse_iterator<const_iterator>;
     
-    List() : fake_node_(&fake_node_, &fake_node_), alloc_(), sz_(0){
+
+    List() 
+        : alloc_()
+        , fake_node_(&fake_node_, &fake_node_)
+        , sz_(0)
+    {
 #ifdef LOGGING
         std::cout<<"\n\nList(): " << this;
         std::cout.flush();
 #endif 
     }
     
-    //List(const Allocator& alloc){}
+    List(const Allocator& alloc)
+        : alloc_(alloc)
+        , fake_node_(&fake_node_, &fake_node_)  
+        , sz_(0)
+    {
+#ifdef LOGGING
+        std::cout<<"\n\nList(const Allocator& alloc): " << this;
+        std::cout.flush();
+#endif 
+    }
     
-    //List(size_t count, const Allocator& alloc){}
+    List(size_t count, const Allocator& alloc) 
+        : alloc_(alloc)
+        , fake_node_(&fake_node_, &fake_node_)
+        , sz_(0)    
+    {
+#ifdef LOGGING
+        std::cout<<"\n\nList(size_t count, const Allocator& alloc): " << this;
+        std::cout.flush();
+#endif 
+        try{
+            insert(begin(), T(), count);
+        }
+        catch(...){throw;}
+    }
     
-    //List(size_t count, const T& value, const Allocator& alloc){}
-    
-    //template <typename InputIt>
-    //List(InputIt first, InputIt last, const Allocator& alloc){}
+    List(size_t count, const T& value, const Allocator& alloc = Allocator()) 
+        : alloc_(alloc)
+        , fake_node_(&fake_node_, &fake_node_)
+        , sz_(0)    
+    {
+#ifdef LOGGING
+        std::cout<<"\n\nList(size_t count, const T& value, const Allocator& alloc = Allocator()): " << this;
+        std::cout.flush();
+#endif 
+        try{
+            insert(begin(), count, value);
+        }
+        catch(...){throw;}
+    }
 
+    
+    template <typename InputIt>
+    List(InputIt first, InputIt last, const Allocator& alloc = Allocator()) 
+        : alloc_(alloc)
+        , fake_node_(&fake_node_, &fake_node_)
+        , sz_(0)    
+    {
+#ifdef LOGGING
+        std::cout<<"\n\nList(InputIt first, InputIt last, const Allocator& alloc = Allocator()): " << this;
+        std::cout.flush();
+#endif 
+        try{
+            insert(begin(), first, last);
+        }
+        catch(...){throw;}
+    }
 
     List(const List& other) 
-        : fake_node_(&fake_node_, &fake_node_) 
-        , alloc_(std::allocator_traits<Allocator>::select_on_container_copy_construction(other.get_allocator()))
+        : alloc_(std::allocator_traits<Allocator>::select_on_container_copy_construction(other.get_allocator()))
+        , fake_node_(&fake_node_, &fake_node_)  
         , sz_(0)
     {
 #ifdef LOGGING
@@ -136,23 +189,40 @@ public:
         std::cout.flush();
 #endif 
         try{
-            auto this_it = begin();
-            auto other_it = other.begin();
-            auto other_end = other.end();
-    //        for()
-  //          other.sz_;
+            insert(begin(), other.begin(), other.end());        
         }
-        catch(...){
-            
-            throw;
-        }
-        
-    
+        catch(...){throw;}
     }
     
-    //List(const List& other, const Allocator& alloc){}
+    List(const List& other, const Allocator& alloc) 
+        : alloc_(alloc)
+        , fake_node_(&fake_node_, &fake_node_)  
+        , sz_(0)
+    {
+#ifdef LOGGING
+        std::cout<<"\n\nList(const List& other, const Allocator& alloc): " << this;
+        std::cout.flush();
+#endif 
+        try{
+            insert(begin(), other.begin(), other.end());        
+        }
+        catch(...){throw;}
+    }
     
-    //List(std::initializer_list<T> init_list, const Allocator& alloc){}
+    List(std::initializer_list<T> init_list, const Allocator& alloc = Allocator())
+        : alloc_(alloc)
+        , fake_node_(&fake_node_, &fake_node_)
+        , sz_(0)    
+    {
+#ifdef LOGGING
+        std::cout<<"\n\nList(std::initializer_list<T> init_list, const Allocator& alloc = Allocator()): " << this;
+        std::cout.flush();
+#endif 
+        try{
+            insert(begin(), init_list);
+        }
+        catch(...){throw;}
+    }
 
     
     ~List() {
@@ -165,6 +235,11 @@ public:
     }
 
     List& operator=(const List& other){
+#ifdef LOGGING
+        std::cout<<"\n\nList& operator=(const List& other): " << this<<"\n";
+        std::cout.flush();
+#endif
+
         if (this == &other) return other;
         
         Allocator new_alloc = std::allocator_traits<Allocator>::propagate_on_container_copy_assignment::value
@@ -184,20 +259,36 @@ public:
             }
             catch(...){throw;}
         }
-
-        
-
-#ifdef LOGGING
-        std::cout<<"\n\noperator=(const List& other)" 
-            <<"\n\tthis  - " << this
-            <<"\n\tother - " << &other;
-        std::cout.flush();
-#endif    
     }
 
     // List& operator=(std::initializer_list<T> ilist){}
 
-    //void assign(size_t count, const T& value){}
+    void assign(size_t count, const T& value){
+#ifdef LOGGING
+        std::cout<<"\n\nStart assigning "<< count << " elements:";
+        std::cout.flush();
+#endif          
+
+        if (count == 0){
+#ifdef LOGGING
+            std::cout<<"\n\nEnd assigning: count == 0";
+            std::cout.flush();
+#endif         
+            clear();
+            return;
+        }
+        
+        if(sz_ >= count){
+        
+        }
+        else{
+
+        }
+
+        BaseNode* first_new_node = nullptr;
+        size_t inserted_count = 0;
+    
+    }
     
     
     //template< class InputIt>
@@ -205,7 +296,7 @@ public:
 
     //void assign(std::initializer_list<T> init_list){}
     
-    Allocator get_allocator(){return alloc_;}
+    Allocator get_allocator() const {return alloc_;}
 
     reference front(){
         return *begin();
@@ -250,9 +341,9 @@ public:
 
 
 
-    bool empty(){return sz_ == 0;}
+    bool empty() const {return sz_ == 0;}
    
-    size_t size(){return sz_;}
+    size_t size() const {return sz_;}
     
     long max_size() const{return std::numeric_limits<difference_type>::max();}
 
@@ -274,12 +365,12 @@ public:
             try{
                 std::allocator_traits<NodeAllocator>::construct(alloc_, &new_node->value, value);
             }
-            catch(...){throw;}    
+            catch(...){
+                std::allocator_traits<NodeAllocator>::deallocate(alloc_, new_node, 1);
+                throw;
+            }    
         }
-        catch(...){
-            std::allocator_traits<NodeAllocator>::deallocate(alloc_, new_node, 1);
-            throw;
-        }
+        catch(...){throw;}
         /*
             Using of the const_cast<T*>(const T*) there is never UB here, 
             because at the memory level all elements are non-constant.
@@ -313,60 +404,77 @@ public:
         std::cout.flush();
 #endif          
 
-        Node* first_new_node = nullptr;
+        if (count == 0){
+#ifdef LOGGING
+            std::cout<<"\n\nEnd inserting: count == 0";
+            std::cout.flush();
+#endif          
+            return const_cast<BaseNode*>(pos.ptr_);
+        }
+
+
+        BaseNode* first_new_node = nullptr;
         size_t inserted_count = 0;
         try{
             first_new_node = std::allocator_traits<NodeAllocator>::allocate(alloc_, 1);
             try{
-                std::allocator_traits<NodeAllocator>::construct(alloc_, &first_new_node->value, value);
+                std::allocator_traits<NodeAllocator>::construct(alloc_, &static_cast<Node*>(first_new_node)->value, value);
             }
-            catch(...){throw;} 
+            catch(...){
+                std::allocator_traits<NodeAllocator>::deallocate(alloc_, static_cast<Node*>(first_new_node), 1);
+                throw;
+            } 
         }
-        catch(...){
-            std::allocator_traits<NodeAllocator>::deallocate(alloc_, first_new_node, 1);
-            throw;
-        }
+        catch(...){throw;}
         
        ++inserted_count;
+
 #ifdef LOGGING
         std::cout<<"\n\t created " << inserted_count <<"/"<< count << " element: " << first_new_node;
         std::cout.flush();
 #endif        
 
-
-        Node* last_new_node = first_new_node;
+        BaseNode* last_new_node = first_new_node;
         try{
             for(; inserted_count != count; ++inserted_count){
-
                 last_new_node->next = std::allocator_traits<NodeAllocator>::allocate(alloc_, 1);
                 try{
                     /*The Node::prev and Node::next elements are of type (BaseNode*).*/
                     std::allocator_traits<NodeAllocator>::construct(alloc_, &static_cast<Node*>(last_new_node->next)->value, value);
                 }
-                catch(...){throw;}
+                catch(...){
+                    std::allocator_traits<NodeAllocator>::deallocate(alloc_, static_cast<Node*>(last_new_node->next), 1);
+                    throw;
+                }
                 last_new_node->next->prev = last_new_node;
-                last_new_node = static_cast<Node*>(last_new_node->next);
+                last_new_node = last_new_node->next;
+
 #ifdef LOGGING
                 std::cout<<"\n\t created " << inserted_count+1 <<"/"<< count << " element: " << last_new_node<<std::endl;
                 std::cout.flush();
-#endif        
+#endif       
+
             }
         }
         catch(...){
             while(last_new_node != first_new_node){
+                last_new_node = last_new_node->prev;
                 std::allocator_traits<NodeAllocator>::destroy(alloc_, static_cast<Node*>(last_new_node->next));
                 /*The Node::prev and Node::next elements are of type (BaseNode*).*/
                 std::allocator_traits<NodeAllocator>::deallocate(alloc_, static_cast<Node*>(last_new_node->next), 1);
-                
-                last_new_node = static_cast<Node*>(last_new_node->prev);
+                --inserted_count;
             }
+
             //Removing the second new node
-            std::allocator_traits<NodeAllocator>::destroy(alloc_, static_cast<Node*>(first_new_node->next));
-            std::allocator_traits<NodeAllocator>::deallocate(alloc_, static_cast<Node*>(first_new_node->next), 1); 
-            
+            if(inserted_count == 2){
+                std::allocator_traits<NodeAllocator>::destroy(alloc_, static_cast<Node*>(first_new_node->next));
+                std::allocator_traits<NodeAllocator>::deallocate(alloc_, static_cast<Node*>(first_new_node->next), 1); 
+            }
+
             //Removing the first new node
             std::allocator_traits<NodeAllocator>::destroy(alloc_, static_cast<Node*>(first_new_node));
             std::allocator_traits<NodeAllocator>::deallocate(alloc_,static_cast<Node*>( first_new_node), 1); 
+            
             throw;
         }
 
@@ -375,11 +483,10 @@ public:
             Using of the const_cast<T*>(const T*) there is never UB here, 
             because at the memory level all elements are non-constant.
         */  
-        BaseNode* pos_node = const_cast<BaseNode*>(pos.ptr_);
-    
+        BaseNode* pos_node = const_cast<BaseNode*>(pos.ptr_); 
 
         last_new_node->next = pos_node->next;
-        last_new_node->next->prev = last_new_node;
+        pos_node->next->prev = last_new_node;
         
         pos_node->next = first_new_node;
         first_new_node->prev = pos_node;
@@ -398,10 +505,128 @@ public:
         return {first_new_node};
     }   
 
-    //template< class InputIt > 
-    //iterator insert( const_iterator pos, InputIt first, InputIt last );
+    template< class InputIt > 
+    iterator insert(const_iterator pos, InputIt first, InputIt last){
+#ifdef LOGGING
+        std::cout<<"\n\nStart inserting [first; last):"
+            <<"\n\t address of (*first): " << std::addressof(*first)
+            <<"\n\t address of (*last):  " << std::addressof(*last);
+        std::cout.flush();
+#endif          
+
+        if (first == last){
+#ifdef LOGGING
+            std::cout<<"\n\nEnd inserting [first; last): first == last";
+            std::cout.flush();
+#endif          
+            return const_cast<BaseNode*>(pos.ptr_);
+        }
+
+
+        InputIt current_other_it = first;
+        BaseNode* first_new_node = nullptr;
+        size_t inserted_count = 0;
+        try{
+            first_new_node = std::allocator_traits<NodeAllocator>::allocate(alloc_, 1);
+            try{
+                std::allocator_traits<NodeAllocator>::construct(alloc_, &static_cast<Node*>(first_new_node)->value, *current_other_it);
+            }
+            catch(...){
+                std::allocator_traits<NodeAllocator>::deallocate(alloc_, static_cast<Node*>(first_new_node), 1);
+                throw;
+            } 
+        }
+        catch(...){throw;}
+        
+        ++inserted_count;
+        ++current_other_it;
+
+#ifdef LOGGING
+        std::cout<<"\n\t created element: " << first_new_node;
+        std::cout.flush();
+#endif        
+
+        BaseNode* last_new_node = first_new_node;
+        try{
+            while(current_other_it != last){
+                last_new_node->next = std::allocator_traits<NodeAllocator>::allocate(alloc_, 1);
+                try{
+                    /*The Node::prev and Node::next elements are of type (BaseNode*).*/
+                    std::allocator_traits<NodeAllocator>::construct(alloc_, &static_cast<Node*>(last_new_node->next)->value, *current_other_it);
+                }
+                catch(...){
+                    std::allocator_traits<NodeAllocator>::deallocate(alloc_, static_cast<Node*>(last_new_node->next), 1);
+                    throw;
+                }
+                
+                last_new_node->next->prev = last_new_node;
+                last_new_node = last_new_node->next;
+                ++current_other_it;
+                ++inserted_count;
+#ifdef LOGGING
+                std::cout<<"\n\tcreated element: " << last_new_node<<std::endl;
+                std::cout.flush();
+#endif       
+            }
+        }
+        catch(...){
+            while(last_new_node != first_new_node){
+                last_new_node = last_new_node->prev;
+                std::allocator_traits<NodeAllocator>::destroy(alloc_, static_cast<Node*>(last_new_node->next));
+                /*The Node::prev and Node::next elements are of type (BaseNode*).*/
+                std::allocator_traits<NodeAllocator>::deallocate(alloc_, static_cast<Node*>(last_new_node->next), 1);
+                --inserted_count;
+            }
+
+            //Removing the second new node
+            if(inserted_count == 2){
+                std::allocator_traits<NodeAllocator>::destroy(alloc_, static_cast<Node*>(first_new_node->next));
+                std::allocator_traits<NodeAllocator>::deallocate(alloc_, static_cast<Node*>(first_new_node->next), 1); 
+            }
+
+            //Removing the first new node
+            std::allocator_traits<NodeAllocator>::destroy(alloc_, static_cast<Node*>(first_new_node));
+            std::allocator_traits<NodeAllocator>::deallocate(alloc_,static_cast<Node*>( first_new_node), 1); 
+            
+            throw;
+        }
+
     
-    //iterator insert( const_iterator pos, std::initializer_list<T> ilist );
+        /*
+            Using of the const_cast<T*>(const T*) there is never UB here, 
+            because at the memory level all elements are non-constant.
+        */  
+        BaseNode* pos_node = const_cast<BaseNode*>(pos.ptr_); 
+
+        last_new_node->next = pos_node->next;
+        pos_node->next->prev = last_new_node;
+        
+        pos_node->next = first_new_node;
+        first_new_node->prev = pos_node;
+
+        sz_+=inserted_count;
+#ifdef LOGGING
+
+        std::cout<<"\n\nEnd inserting [first; last):"
+            <<"\nInserted in   "
+            <<"\nfirst - last: " << first_new_node <<" - " << last_new_node
+            <<"\n\tfist_prev:  " << first_new_node->prev 
+            <<"\n\tlast_next:  " << last_new_node->next
+            <<"\n\tsize:       " << sz_;
+        std::cout.flush();
+#endif        
+
+        return {first_new_node};
+    }      
+
+
+    iterator insert( const_iterator pos, std::initializer_list<T> init_list ){
+        try{
+            return insert(pos, init_list.begin(), init_list.end());
+        }
+        catch(...){throw;}
+    }      
+ 
 
     
     
@@ -433,83 +658,96 @@ public:
 
 
     iterator erase(const_iterator first, const_iterator last){
-        if(first == last) return const_cast<BaseNode*>(last.ptr_);
-        
-        /* 
-            The BaseNode::next and BaseNode::prev fields are non-constant, 
-            but the const_iterator::ptr_ pointer is const 
-        */
-        BaseNode* first_prev = first.ptr_->prev;  
-        iterator following_after_delete = first.ptr_->next;
-
 #ifdef LOGGING
         std::cout<<"\n\nStart erasing: [" << first.ptr_ << " ; " << last.ptr_ << ")";
         std::cout.flush();
 #endif       
+        
+        if(first == last){ 
+ #ifdef LOGGING
+            if (empty()){
+                std::cout<<"\n\nEnd erasing: list is already empty";
+            }
+            else{
+                std::cout<<"\n\nEnd erasing: nothing was erased because first == last";
+            }
+            std::cout.flush();
+#endif        
+            return const_cast<BaseNode*>(last.ptr_);
+        }
+        
+        /* 
+        The BaseNode::next and BaseNode::prev fields are non-constant, 
+        but the const_iterator::ptr_ pointer is const 
+        */
+        BaseNode* first_prev = first.ptr_->prev;  
+        BaseNode* following_after_delete = first.ptr_->next;
+
         if(last != cend()){
-             while (following_after_delete.ptr_->prev != last.ptr_) { 
-                std::allocator_traits<NodeAllocator>::destroy(alloc_, static_cast<Node*>(following_after_delete.ptr_->prev));
-                std::allocator_traits<NodeAllocator>::deallocate(alloc_, static_cast<Node*>(following_after_delete.ptr_->prev), 1);    
-        
+             while (following_after_delete->prev != last.ptr_) { 
+                std::allocator_traits<NodeAllocator>::destroy(alloc_, static_cast<Node*>(following_after_delete->prev));
+                std::allocator_traits<NodeAllocator>::deallocate(alloc_, static_cast<Node*>(following_after_delete->prev), 1);    
                 --sz_;
+
 #ifdef LOGGING
                 std::cout
-                    <<"\n\terased:           " << following_after_delete.ptr_->prev
-                    <<"\n\tnext_value:       " << *following_after_delete
-                    <<"\n\tsize:             " << sz_
-                    <<"\n\tnext_dell - last: " <<following_after_delete.ptr_ <<" - "<< last.ptr_;
+                    <<"\n\n\terased:           " << following_after_delete->prev
+                      <<"\n\tnext_value:       " << following_after_delete
+                      <<"\n\nnew size:         " << sz_
+                      <<"\n\tnext_dell - last: " <<following_after_delete <<" - "<< last.ptr_;
                 std::cout.flush();
 #endif        
-                ++following_after_delete;
+
+                following_after_delete = following_after_delete->next;
             }
 
-#ifdef LOGGING
-            std::cout
-                <<"\n\nend erasing:        "
-                <<"\n\tfollowing node      "
-                <<"\n\tafter last deleted: " << following_after_delete.ptr_
-                <<"\n\tfirst_prev:         " << first_prev;
-            std::cout.flush();
-#endif        
-
-            first_prev->next = following_after_delete.ptr_->prev;
-            following_after_delete.ptr_->prev->prev = first_prev;
+            first_prev->next = following_after_delete->prev;
+            following_after_delete->prev->prev = first_prev;
         }
-
         else{ 
-            while (following_after_delete.ptr_->prev != last.ptr_) { 
-                std::allocator_traits<NodeAllocator>::destroy(alloc_, static_cast<Node*>(following_after_delete.ptr_->prev));
-                std::allocator_traits<NodeAllocator>::deallocate(alloc_, static_cast<Node*>(following_after_delete.ptr_->prev), 1);    
-        
+            while (following_after_delete != &fake_node_) { 
+                std::allocator_traits<NodeAllocator>::destroy(alloc_, static_cast<Node*>(following_after_delete->prev));
+                std::allocator_traits<NodeAllocator>::deallocate(alloc_, static_cast<Node*>(following_after_delete->prev), 1);    
                 --sz_;
+
 #ifdef LOGGING
                 std::cout
-                    <<"\n\terased:           " << following_after_delete.ptr_->prev
-                    <<"\n\tnext_value:       " << *following_after_delete
-                    <<"\n\tsize:             " << sz_
-                    <<"\n\tnext_dell - last: " <<following_after_delete.ptr_ <<" - "<< last.ptr_;
+                    <<"\n\n\terased:           " << following_after_delete->prev
+                      <<"\n\tnext_value:       " << following_after_delete
+                      <<"\n\tnew size:         " << sz_
+                      <<"\n\tnext_dell - last: " <<following_after_delete <<" - "<< last.ptr_;
                 std::cout.flush();
 #endif        
-                if (following_after_delete.ptr_ != &fake_node_)
-                    ++following_after_delete;
-                else{
-                    break;
-                }
+
+                following_after_delete = following_after_delete->next;
             }
+            
+            std::allocator_traits<NodeAllocator>::destroy(alloc_, static_cast<Node*>(following_after_delete->prev));
+            std::allocator_traits<NodeAllocator>::deallocate(alloc_, static_cast<Node*>(following_after_delete->prev), 1);    
+            --sz_;
+
 #ifdef LOGGING
-            std::cout
-                <<"\n\nend erasing:        "
-                <<"\n\tfollowing node      "
-                <<"\n\tafter last deleted: " << following_after_delete.ptr_
-                <<"\n\tfirst_prev:         " << first_prev;
-            std::cout.flush();
+                std::cout
+                    <<"\n\n\terased:           " << following_after_delete->prev
+                      <<"\n\tnext_value:       " << following_after_delete
+                      <<"\n\tsize:             " << sz_
+                      <<"\n\tnext_dell - last: " <<following_after_delete <<" - "<< last.ptr_;
+                std::cout.flush();
 #endif        
 
-            first_prev->next = following_after_delete.ptr_;
-            following_after_delete.ptr_->prev->prev = first_prev;
+
+            first_prev->next = following_after_delete;
+            following_after_delete->prev = first_prev;
         }
 
-        return {following_after_delete.ptr_};
+#ifdef LOGGING
+            std::cout
+                <<"\n\nend erasing:"
+                <<"\n\tfirst_prev:              " << first_prev
+                <<"\n\tfollowing after deleted: " << following_after_delete;
+            std::cout.flush();
+#endif        
+        return {following_after_delete};
     }
 
     /*
@@ -537,12 +775,14 @@ public:
             try{ // T Node::value construct
                 std::allocator_traits<NodeAllocator>::construct(alloc_, &new_node->value, value);
             }
-            catch(...){throw;}
+            catch(...){
+                std::allocator_traits<NodeAllocator>::deallocate(alloc_, new_node, 1);
+                throw;
+            }
+
         }
-        catch(...){
-            std::allocator_traits<NodeAllocator>::deallocate(alloc_, new_node, 1);
-            throw;
-        }
+        catch(...){throw;}
+        
         BaseNode* fake_node_prev = fake_node_.prev;  
         fake_node_prev->next = new_node;
         new_node->prev = fake_node_prev;
@@ -601,12 +841,12 @@ public:
             try{
                 std::allocator_traits<NodeAllocator>::construct(alloc_, &new_node->value, value);
             }
-            catch(...){throw;}
+            catch(...){
+                std::allocator_traits<NodeAllocator>::deallocate(alloc_, new_node, 1);
+                throw;
+            }
         }
-        catch(...){
-            std::allocator_traits<NodeAllocator>::deallocate(alloc_, new_node, 1);
-            throw;
-        }
+        catch(...){throw;}
 
         BaseNode* fake_node_next = fake_node_.next;  
         fake_node_.next = new_node;
@@ -623,10 +863,7 @@ public:
             <<"\n\tnew size:  " << sz_;
         std::cout.flush();
 #endif    
-        
     }
-
-
 
     void pop_front(){
         if (empty()) {return;}
@@ -657,7 +894,23 @@ public:
     //void resize( size_type count, const value_type& value );   
    
    
-    //void swap( list& other ) noexcept{}
+    void swap(List& other) noexcept{
+        std::swap(fake_node_, other.fake_node_);
+        std::swap(fake_node_.next->prev, other.fake_node_.next->prev);
+        std::swap(fake_node_.prev->next, other.fake_node_.prev->next);
+        std::swap(sz_, other.sz_);
+        
+    #if (__cplusplus <=  201402L)
+        if (std::allocator_traits<NodeAllocator>::propagate_on_container_swap::value)
+    #endif
+    #if (__cplusplus >  201402L)
+        if constexpr(std::allocator_traits<NodeAllocator>::propagate_on_container_swap::value)
+    #endif
+        {
+            std::swap(alloc_, other.alloc_);
+        }
+    } 
+    
    
    
     //merge
@@ -707,11 +960,11 @@ struct A{
         ++val;
 #ifdef LOGGING
         std::cout
-            <<"\n\nA (copy of A" << other.a << "): "<< this
+            <<"\n\nA (copy of A(" << other.a << "): "<< this
             <<"\tstatic val:" << val; 
         std::cout.flush();
 #endif
-        if(val == 5){
+        if(val == 10){
 #ifdef LOGGING
         std::cout
             <<"\n\t!!! THROW 5; !!!"<< this;
@@ -742,17 +995,21 @@ struct A{
     }
 };
 
-std::ostream& operator<< (std::ostream& os, const A& obj){
+std::ostream& operator << (std::ostream& os, const A& obj){
     return os << obj.a;
 }
 
-template <typename T, typename Allocator>
-void showList(const List<T, Allocator>& list){
-    for (auto& el : list){std::cout<< el <<" ";}
+template <typename Container>
+void showList(const Container& container){
+    if (container.empty()){std::cout<<"empty";}
+    else{
+        for (auto& el : container){std::cout<< el <<" ";}
+    }
+    std::cout<<"\n\tsize: "<<container.size();
     std::cout.flush();
 }
 
+
 int main(){
-    
     return 0;
 }
