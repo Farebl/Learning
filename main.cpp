@@ -1,6 +1,6 @@
 #include "Containers/include/list.hpp"
 
-#define LOGGING_A
+//#define LOGGING_A
 //#define LOGGING_ALLOC
 
 #include <iostream>
@@ -39,7 +39,7 @@ struct A{
     A(const A& other): value(other.value), ptr(new T(value)){
         ++counter;
   
-        if(counter == 120){
+        if(counter == -1){
 #ifdef LOGGING_A
         std::cout
             <<"\n\t!!! THROW 5; !!!"<< this;
@@ -73,7 +73,7 @@ struct A{
     A& operator=(const A& other) {
         ++assignments_counter;
  
-        if(assignments_counter == 30){
+        if(assignments_counter == -1){
 #ifdef LOGGING_A
         std::cout
             <<"\n\t!!! THROW 5; !!!"<< this;
@@ -137,7 +137,34 @@ struct A{
         std::cout.flush();
 #endif
     }
+    
+    template <typename T_>
+    friend bool operator==(const A<T_>& lhs, const A<T_>& rhs);
+
+    template <typename T_>
+    friend bool operator!=(const A<T_>& lhs, const A<T_>& rhs);
+
+    template <typename T_>
+    friend bool operator<(const A<T_>& lhs, const A<T_>& rhs);
+
 };
+
+template <typename T_>
+bool operator==(const A<T_>& lhs, const A<T_>& rhs){
+    return lhs.value == rhs.value;
+}
+
+template <typename T_>
+bool operator!=(const A<T_>& lhs, const A<T_>& rhs){
+    return !(lhs == rhs);
+}
+
+template <typename T_>
+bool operator<(const A<T_>& lhs, const A<T_>& rhs){
+    return lhs.value < rhs.value;
+}
+
+
 
 
 template <typename T>
@@ -251,74 +278,27 @@ void showList(const Container& container){
     std::cout.flush();
 }
 
+template <typename T>
+struct Debugger{
+    Debugger() = delete;
+};
+
+#include <vector>
+#include <tuple>
 int main(){
+    std::cout<<"\nStart\n\n";
     try{
-        CustomAllocator<A<std::string>> alloc1("alloc1"); 
-        CustomAllocator<A<std::string>> alloc2("alloc2"); 
-        /*
-        std::list<A<std::string>, CustomAllocator<std::string>> l1({
-                A{std::string("1")},
-                A{std::string("2")},
-                A{std::string("3")},
-                A{std::string("4")},
-                A{std::string("5")},
-                A{std::string("6")},
-                A{std::string("7")}
-                }, alloc1);
-        std::list<A<std::string>, CustomAllocator<std::string>> l2({
-                A{std::string("20")}, 
-                A{std::string("30")}, 
-                A{std::string("40")},
-                A{std::string("50")}
-                }, alloc2);
-        */
-        List<A<std::string>, CustomAllocator<A<std::string>>> l1({     
-            {std::string("1")},
-            {std::string("2")},
-            {std::string("5")},
-            {std::string("4")},
-            {std::string("5")},
-            {std::string("6")},
-            {std::string("5")}
-        }, alloc1);
-
-        List<A<std::string>, CustomAllocator<A<std::string>>> l2({
-            {std::string("10")},
-            {std::string("20")},
-            {std::string("30")},
-            {std::string("40")},
-            {std::string("50")}
-        }, alloc2);
-
-        std::cout<<"\n\n\nList1:\n\t";
-        showList(l1);
-
-        std::cout<<"\n\nList2: (before assignment)\n\t";
-        showList(l2);
-        std::cout<<"\n\n";
-        
-        try{            
-            l2.insert(++++l2.begin(), std::make_move_iterator(++l1.begin()), std::make_move_iterator(--l1.end()));          
-        }
-
-        catch(...){
-            std::cout<<"\n\n\n!!! catched exception in main second level";
-            std::cout<<"\n\n\nList2: (after assignment end throw)\n\t";
-            showList(l2);
-            std::cout<<"\n\n";
-
-            throw;
-        }
-        std::cout<<"\n\n\nList1: (after assignment)\n\t";
-        showList(l1);
-        
-        std::cout<<"\n\n\nList2: (after assignment)\n\t";
-        showList(l2);
-        std::cout<<"\n\n";
+        List<int> l1{1, 2, 3, 4, 5};
+        List l2{l1.begin(), l1.begin()};
+        List l3(l1.begin(), l1.begin());
+        std::cout<<(l1>l3);
+        //Debugger<decltype(l3)>();
     }
     catch(...){
         std::cout<<"!!! \n\n\ncatched exception in main first level";
     }
     
+    
+    std::cout<<"\n\nend\n";
     return 0;
 }

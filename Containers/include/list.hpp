@@ -963,9 +963,81 @@ public:
     //unique
 
     //sort
-   
+    
 };
 
 
+template <typename T, typename Allocator>
+bool operator==(const List<T, Allocator>& lhs, const List<T, Allocator>& rhs){
+    return std::equal(lhs.begin(), lhs.end(), rhs.begin(), rhs.end());
+}
+
+
+template <typename T, typename Allocator>
+bool operator!=(const List<T, Allocator>& lhs, const List<T, Allocator>& rhs){
+    return !(lhs == rhs);
+}
+
+
+template <typename T, typename Allocator>
+bool operator<(const List<T, Allocator>& lhs, const List<T, Allocator>& rhs){
+    return std::lexicographical_compare(lhs.begin(), lhs.end(), rhs.begin(), rhs.end());
+}
+
+
+template <typename T, typename Allocator>
+bool operator>(const List<T, Allocator>& lhs, const List<T, Allocator>& rhs){
+    if (lhs.size() == 0) return false;
+    if (rhs.size() == 0) return true;
+
+    auto lhs_it = lhs.cbegin();
+    auto lhs_end = lhs.cend();
+    auto rhs_it = rhs.cbegin();
+    auto rhs_end = rhs.cend();
+
+    if (lhs.size() >= rhs.size()) {
+        while(rhs_it != rhs_end){
+            if (*lhs_it != *rhs_it){
+                if (!(*lhs_it < *rhs_it)) return true;
+                if (*lhs_it < *rhs_it) return false;
+            }
+            ++lhs_it;
+            ++rhs_it;
+        }
+        if (lhs_it != lhs_end) 
+            return true;
+        else 
+            return false;
+    }
+    else {
+        while(lhs_it != lhs_end){
+            if (*lhs_it != *rhs_it){
+                if (!(*lhs_it < *rhs_it)) return true;
+                if (*lhs_it < *rhs_it) return false;
+            }
+            ++lhs_it;
+            ++rhs_it;
+        }
+        return false;
+    }
+}
+
+
+template <typename T, typename Allocator>
+bool operator<=(const List<T, Allocator>& lhs, const List<T, Allocator>& rhs){
+    return !(lhs > rhs); 
+}
+
+
+template <typename T, typename Allocator>
+bool operator>=(const List<T, Allocator>& lhs, const List<T, Allocator>& rhs){
+    return !(lhs < rhs);
+}
+
+
+//CTAD deduction guides
+
+template <typename InputIterator, typename Allocator = std::allocator<typename std::iterator_traits<InputIterator>::value_type>>
+List(InputIterator, InputIterator, Allocator = Allocator()) -> List<typename std::iterator_traits<InputIterator>::value_type, Allocator>; 
 
 #endif //FAREBL_LIST_H
