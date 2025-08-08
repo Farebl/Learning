@@ -1,10 +1,15 @@
 #include "Containers/include/list.hpp"
+#include "Containers/include/deque.hpp"
+#include <list>
+#include <deque>
 
 //#define LOGGING_A
 //#define LOGGING_ALLOC
 
 #include <iostream>
 #include <memory>
+#include <type_traits> 
+
 template <typename T>
 struct A{
     T value;
@@ -283,22 +288,15 @@ struct Debugger{
     Debugger() = delete;
 };
 
-#include <vector>
-#include <tuple>
+
 int main(){
     std::cout<<"\nStart\n\n";
     try{
-        List<int> l1{1, 2, 3, 4, 5};
-        List l2{l1.begin(), l1.begin()};
-        List l3(l1.begin(), l1.begin());
-        std::cout<<(l1>l3);
-        //Debugger<decltype(l3)>();
     }
     catch(...){
         std::cout<<"!!! \n\n\ncatched exception in main first level";
     }
-    
-    
+
     std::cout<<"\n\nend\n";
     return 0;
 }

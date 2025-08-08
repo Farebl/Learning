@@ -11,8 +11,10 @@
 #include <type_traits>       // for conditional
 #include <utility>           // for forward
 
+namespace Farebl {
+
 template<typename T, typename Allocator = std::allocator<T>>
-class List{
+class list{
     struct BaseNode{
         BaseNode* prev;
         BaseNode* next;
@@ -34,7 +36,7 @@ public:
     template<bool IsConst = false>
     struct base_iterator{
     private:
-        friend class List;
+        friend class list;
 
         using BaseNodePtr_t = typename std::conditional<IsConst, const BaseNode*, BaseNode*>::type;
         using NodePtr_t = typename std::conditional<IsConst, const Node*, Node*>::type;
@@ -109,19 +111,19 @@ public:
     
 
 
-    List() 
+    list() 
         : alloc_()
         , fake_node_(&fake_node_, &fake_node_)
         , sz_(0)
     {}
 
-    List(const Allocator& alloc)
+    explicit list(const Allocator& alloc)
         : alloc_(alloc)
         , fake_node_(&fake_node_, &fake_node_)  
         , sz_(0)
     {}
     
-    List(size_t count, const Allocator& alloc) 
+    explicit list(size_t count, const Allocator& alloc) 
         : alloc_(alloc)
         , fake_node_(&fake_node_, &fake_node_)
         , sz_(0)    
@@ -129,7 +131,7 @@ public:
         insert(begin(), T(), count);
     }
     
-    List(size_t count, const T& value, const Allocator& alloc = Allocator()) 
+    explicit list(size_t count, const T& value, const Allocator& alloc = Allocator()) 
         : alloc_(alloc)
         , fake_node_(&fake_node_, &fake_node_)
         , sz_(0)    
@@ -139,7 +141,7 @@ public:
 
     
     template <typename InputIt>
-    List(InputIt first, InputIt last, const Allocator& alloc = Allocator()) 
+    list(InputIt first, InputIt last, const Allocator& alloc = Allocator()) 
         : alloc_(alloc)
         , fake_node_(&fake_node_, &fake_node_)
         , sz_(0)    
@@ -147,7 +149,7 @@ public:
         insert(begin(), first, last);
     }
 
-    List(const List& other) 
+    list(const list& other) 
         : alloc_(std::allocator_traits<NodeAllocator>::select_on_container_copy_construction(other.get_allocator()))
         , fake_node_(&fake_node_, &fake_node_)  
         , sz_(0)
@@ -156,7 +158,7 @@ public:
     }
     
 
-    List(List&& other) 
+    list(list&& other) 
         : alloc_(std::move(other.get_allocator()))
         , fake_node_(&fake_node_, &fake_node_)  
         , sz_(other.sz_)
@@ -173,7 +175,7 @@ public:
     }
 
     
-    List(const List& other, const Allocator& alloc) 
+    list(const list& other, const Allocator& alloc) 
         : alloc_(alloc)
         , fake_node_(&fake_node_, &fake_node_)  
         , sz_(0)
@@ -182,7 +184,7 @@ public:
     }
    
 
-    List(List&& other, const Allocator& alloc) 
+    list(list&& other, const Allocator& alloc) 
         : alloc_(alloc)
         , fake_node_(&fake_node_, &fake_node_)  
         , sz_(other.sz_)
@@ -200,7 +202,7 @@ public:
 
 
 
-    List(std::initializer_list<T> init_list, const Allocator& alloc = Allocator())
+    list(std::initializer_list<T> init_list, const Allocator& alloc = Allocator())
         : alloc_(alloc)
         , fake_node_(&fake_node_, &fake_node_)
         , sz_(0)    
@@ -210,13 +212,13 @@ public:
 
     
 
-    ~List() {
+    ~list() {
         clear();
     }
 
 
 
-    List& operator=(const List& other){
+    list& operator=(const list& other) & {
         if (this == &other) return *this;
         
         NodeAllocator new_alloc = std::allocator_traits<NodeAllocator>::propagate_on_container_copy_assignment::value
@@ -234,11 +236,11 @@ public:
             else{
                 //for strong exception safety using copy-and-swap idiom 
                 if constexpr(std::allocator_traits<NodeAllocator>::propagate_on_container_swap::value){
-                    List temp(other, new_alloc);
+                    list temp(other, new_alloc);
                     swap(temp);
                 }
                 else{
-                    List temp(other, new_alloc);
+                    list temp(other, new_alloc);
                     swap(temp);
                     alloc_ = new_alloc;
                 }
@@ -263,7 +265,7 @@ public:
         return *this;
     }
 
-    List& operator=(List&& other)noexcept(noexcept(std::allocator_traits<NodeAllocator>::is_always_equal::value)){
+    list& operator=(list&& other) & noexcept(noexcept(std::allocator_traits<NodeAllocator>::is_always_equal::value)) {
         if (this == &other) return *this;
         
         NodeAllocator new_alloc = std::allocator_traits<NodeAllocator>::propagate_on_container_move_assignment::value  
@@ -300,11 +302,11 @@ public:
             else{ 
                 //for strong exception safety using copy-and-swap idiom 
                 if constexpr(std::allocator_traits<NodeAllocator>::propagate_on_container_swap::value){
-                    List temp(std::move(other), new_alloc);
+                    list temp(std::move(other), new_alloc);
                     swap(temp);
                 }
                 else{
-                    List temp(std::move(other), new_alloc);
+                    list temp(std::move(other), new_alloc);
                     swap(temp);
                     alloc_ = new_alloc;
                 }
@@ -326,8 +328,9 @@ public:
         
     }
 
-    List& operator=(std::initializer_list<T> init_list){
+    list& operator=(std::initializer_list<T> init_list) & {
         assign(init_list.begin(), init_list.end());
+        return *this;
     }
     
 
@@ -400,8 +403,8 @@ public:
     const_iterator begin() const {return fake_node_.next;}
     const_iterator end() const {return {&fake_node_};}
 
-    const_iterator cbegin() const {return {fake_node_.next};}
-    const_iterator cend() const {return {&fake_node_};}
+    const_iterator cbegin() const noexcept {return {fake_node_.next};}
+    const_iterator cend() const noexcept {return {&fake_node_};}
 
 
     /*
@@ -415,8 +418,8 @@ public:
     const_reverse_iterator rbegin() const {return std::make_reverse_iterator(cbegin());}
     const_reverse_iterator rend() const {return std::make_reverse_iterator(cend());}
     
-    const_reverse_iterator crbegin() const {return std::make_reverse_iterator(cbegin());}
-    const_reverse_iterator crend() const {return std::make_reverse_iterator(cend());}
+    const_reverse_iterator crbegin() const noexcept {return std::make_reverse_iterator(cbegin());}
+    const_reverse_iterator crend() const noexcept {return std::make_reverse_iterator(cend());}
 
 
     bool empty() const {return sz_ == 0;}
@@ -909,7 +912,7 @@ public:
         }
     }
    
-    void swap(List& other) noexcept(noexcept(std::allocator_traits<NodeAllocator>::is_always_equal::value)){
+    void swap(list& other) noexcept(noexcept(std::allocator_traits<NodeAllocator>::is_always_equal::value)){
         std::swap(fake_node_, other.fake_node_);
         std::swap(fake_node_.next->prev, other.fake_node_.next->prev);
         std::swap(fake_node_.prev->next, other.fake_node_.prev->next);
@@ -968,25 +971,25 @@ public:
 
 
 template <typename T, typename Allocator>
-bool operator==(const List<T, Allocator>& lhs, const List<T, Allocator>& rhs){
+bool operator==(const list<T, Allocator>& lhs, const list<T, Allocator>& rhs){
     return std::equal(lhs.begin(), lhs.end(), rhs.begin(), rhs.end());
 }
 
 
 template <typename T, typename Allocator>
-bool operator!=(const List<T, Allocator>& lhs, const List<T, Allocator>& rhs){
+bool operator!=(const list<T, Allocator>& lhs, const list<T, Allocator>& rhs){
     return !(lhs == rhs);
 }
 
 
 template <typename T, typename Allocator>
-bool operator<(const List<T, Allocator>& lhs, const List<T, Allocator>& rhs){
+bool operator<(const list<T, Allocator>& lhs, const list<T, Allocator>& rhs){
     return std::lexicographical_compare(lhs.begin(), lhs.end(), rhs.begin(), rhs.end());
 }
 
 
 template <typename T, typename Allocator>
-bool operator>(const List<T, Allocator>& lhs, const List<T, Allocator>& rhs){
+bool operator>(const list<T, Allocator>& lhs, const list<T, Allocator>& rhs){
     if (lhs.size() == 0) return false;
     if (rhs.size() == 0) return true;
 
@@ -1024,13 +1027,13 @@ bool operator>(const List<T, Allocator>& lhs, const List<T, Allocator>& rhs){
 
 
 template <typename T, typename Allocator>
-bool operator<=(const List<T, Allocator>& lhs, const List<T, Allocator>& rhs){
+bool operator<=(const list<T, Allocator>& lhs, const list<T, Allocator>& rhs){
     return !(lhs > rhs); 
 }
 
 
 template <typename T, typename Allocator>
-bool operator>=(const List<T, Allocator>& lhs, const List<T, Allocator>& rhs){
+bool operator>=(const list<T, Allocator>& lhs, const list<T, Allocator>& rhs){
     return !(lhs < rhs);
 }
 
@@ -1038,6 +1041,9 @@ bool operator>=(const List<T, Allocator>& lhs, const List<T, Allocator>& rhs){
 //CTAD deduction guides
 
 template <typename InputIterator, typename Allocator = std::allocator<typename std::iterator_traits<InputIterator>::value_type>>
-List(InputIterator, InputIterator, Allocator = Allocator()) -> List<typename std::iterator_traits<InputIterator>::value_type, Allocator>; 
+list(InputIterator, InputIterator, Allocator = Allocator()) -> list<typename std::iterator_traits<InputIterator>::value_type, Allocator>; 
+
+
+}// end namespace Farebl
 
 #endif //FAREBL_LIST_H
