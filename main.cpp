@@ -3,7 +3,7 @@
 #include <list>
 #include <deque>
 
-//#define LOGGING_A
+#define LOGGING_A
 //#define LOGGING_ALLOC
 
 #include <iostream>
@@ -15,7 +15,8 @@ struct A{
     T value;
     std::unique_ptr<T> ptr;
     inline static int counter = 0;
-    inline static int assignments_counter = 0;
+    inline static int copy_assignments_counter = 0;
+    inline static int move_assignments_counter = 0;
 
     A(): value(T()), ptr(new T(value)){
         ++counter;
@@ -76,9 +77,9 @@ struct A{
 
 
     A& operator=(const A& other) {
-        ++assignments_counter;
+        ++copy_assignments_counter;
  
-        if(assignments_counter == -1){
+        if(copy_assignments_counter == -1){
 #ifdef LOGGING_A
         std::cout
             <<"\n\t!!! THROW 5; !!!"<< this;
@@ -100,7 +101,18 @@ struct A{
     }
 
 
-    A& operator=(A&& other) noexcept {
+    A& operator=(A&& other) {
+    ++move_assignments_counter;
+ 
+        if(move_assignments_counter == 2){
+#ifdef LOGGING_A
+        std::cout
+            <<"\n\t!!! THROW 5; !!!"<< this;
+        std::cout.flush();
+#endif      
+            throw 5;
+        }
+
         value = std::move(other.value);
         ptr = std::move(other.ptr);
 #ifdef LOGGING_A
@@ -274,7 +286,7 @@ constexpr bool operator!=(const CustomAllocator<T>& a, const CustomAllocator<U>&
 
 
 template <typename Container>
-void showList(const Container& container){
+void show(const Container& container){
     if (container.empty()){std::cout<<"empty";}
     else{
         for (auto& el : container){std::cout<< el <<" ";}
@@ -292,11 +304,40 @@ struct Debugger{
 int main(){
     std::cout<<"\nStart\n\n";
     try{
+        /*
+        d.insert(d.begin(), {
+            A(std::string("1")), 
+            A(std::string("2")),
+            A(std::string("3")), 
+            A(std::string("4")), 
+            A(std::string("5")), 
+            A(std::string("6")), 
+            A(std::string("7")), 
+            A(std::string("8")), 
+            A(std::string("9")), 
+            A(std::string("10")), 
+        });
+        */
+        Farebl::deque<A<int>> d;
+        d.push_back(1);
+        d.push_back(2);
+        d.push_back(3);
+        d.push_back(4);
+        d.push_back(5);
+
+        std::cout<<"\n\ndeque: \n\t";
+        show(d);
+        
+        std::cout<<"\nthird el: "<< *(d.end()-2);
+
     }
     catch(...){
-        std::cout<<"!!! \n\n\ncatched exception in main first level";
+        std::cout.flush();
+        std::cout<<"!!!\n\n\ncatched exception in main first level";
+    
+        std::cout<<"\n\n\nlist: \n";
+        std::cout<<"\n\n";
     }
-
     std::cout<<"\n\nend\n";
     return 0;
 }

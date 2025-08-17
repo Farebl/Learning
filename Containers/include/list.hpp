@@ -30,13 +30,11 @@ class list{
     NodeAllocator alloc_;
     BaseNode fake_node_;
     size_t sz_;
-   
-public:
 
     template<bool IsConst = false>
     struct base_iterator{
     private:
-        friend class list;
+        friend class Farebl::list<T, Allocator>;
 
         using BaseNodePtr_t = typename std::conditional<IsConst, const BaseNode*, BaseNode*>::type;
         using NodePtr_t = typename std::conditional<IsConst, const Node*, Node*>::type;
@@ -94,6 +92,7 @@ public:
         operator base_iterator<true>() const {return {ptr_};}
     };
 
+public:
 
     using value_type	  = T;
     using allocator_type  = Allocator;
@@ -990,6 +989,12 @@ bool operator<(const list<T, Allocator>& lhs, const list<T, Allocator>& rhs){
 
 template <typename T, typename Allocator>
 bool operator>(const list<T, Allocator>& lhs, const list<T, Allocator>& rhs){
+   
+    return (rhs < lhs);
+    /*
+    
+    self implementation of lexicographical_compare
+
     if (lhs.size() == 0) return false;
     if (rhs.size() == 0) return true;
 
@@ -1023,6 +1028,7 @@ bool operator>(const list<T, Allocator>& lhs, const list<T, Allocator>& rhs){
         }
         return false;
     }
+    */
 }
 
 
