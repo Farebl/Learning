@@ -1,11 +1,10 @@
 #ifndef FAREBL_DEQUE_H
 #define FAREBL_DEQUE_H
 
-ДОРОБКА : коли ти робіш реалок зовнішнього масиву, роби перенос не від [first_; last_] а [first_allocated_; last_allocated];
-
+//ДОРОБКА : коли ти робіш реалок зовнішнього масиву, роби перенос не від [first_; last_] а [first_allocated_; last_allocated];
 
 #include <memory>
-
+#include <limits>
 
 namespace Farebl{
 
@@ -31,7 +30,7 @@ private:
 	    pointer operator->() const {return ptr_;}
 
         base_iterator& operator++(){
-            if (ptr_ - *bucket_ptr_ < deque<T, Allocator>::bucket_size_-1){
+            if (ptr_ - *bucket_ptr_ < static_cast<long int>(deque<T, Allocator>::bucket_size_-1)){
                ++ptr_;
             }
             else{
@@ -99,10 +98,10 @@ private:
 
             difference_type result_index = (ptr_ - *bucket_ptr_) + value % deque<T, Allocator>::bucket_size_;
             
-            if (value > deque<T, Allocator>::bucket_size_)
+            if (value > static_cast<long int>(deque<T, Allocator>::bucket_size_))
                 bucket_ptr_ += value / deque<T, Allocator>::bucket_size_;
             
-            if (result_index < deque<T, Allocator>::bucket_size_){
+            if (result_index < static_cast<long int>(deque<T, Allocator>::bucket_size_)){
                 ptr_ = *bucket_ptr_ + result_index;
             }
             else{
@@ -117,7 +116,7 @@ private:
             
             difference_type result_index = (ptr_ - *bucket_ptr_) - value % deque<T, Allocator>::bucket_size_;
             
-            if (value > deque<T, Allocator>::bucket_size_)
+            if (value > static_cast<difference_type>(deque<T, Allocator>::bucket_size_))
                 bucket_ptr_ -= value / deque<T, Allocator>::bucket_size_;
         
             if (result_index > -1){
@@ -303,22 +302,22 @@ public:
     */
 
     iterator begin() {return {first_};}
-    const_iterator begin() const {return begin();}
+    const_iterator begin() const {return const_cast<std::remove_cv_t<decltype(this)>>(this)->begin();} //this is pointer on non-const object, that's why is call non-const begin() (to avoid recursive call)
     const_iterator cbegin() const noexcept {return begin();}
 
     //last_ pointing on the last element (not to the next position after last element, but straight at last element)
     iterator end() {return {last_.bucket_ptr_, last_.ptr_ + 1};}
-    const_iterator end() const {return end();}
+    const_iterator end() const {return const_cast<std::remove_cv_t<decltype(this)>>(this)->end();} //this is pointer on non-const object, that's why is call non-const begin() (to avoid recursive call)
     const_iterator cend() const noexcept {return end();}
 
 
     reverse_iterator rbegin() {return std::make_reverse_iterator<iterator>(begin());}
-    const_reverse_iterator rbegin() const {return std::make_reverse_iterator<iterator>(cbegin());}
-    const_reverse_iterator crbegin() const noexcept {return std::make_reverse_iterator<iterator>(cbegin());}
+    const_reverse_iterator rbegin() const {return const_cast<std::remove_cv_t<decltype(this)>>(this)->rbegin();}
+    const_reverse_iterator crbegin() const noexcept {return std::make_reverse_iterator<const_iterator>(cbegin());}
     
 
     reverse_iterator rend() {return std::make_reverse_iterator<iterator>(end());}
-    const_reverse_iterator rend() const {return std::make_reverse_iterator<iterator>(cend());}
+    const_reverse_iterator rend() const {return const_cast<std::remove_cv_t<decltype(this)>>(this)->cend();}
     const_reverse_iterator crend() const noexcept {return std::make_reverse_iterator<iterator>(cend());}
 
 
@@ -339,9 +338,6 @@ public:
             buckets_capacity_ = 0;
         }
         else {
-
-        //ПОДУМАЙ: може треба звльнятти вільні комірки зовнішнього масива також
-
             T** current_bucket_ptr = first_allocated_bucket_ptr_; // current_bucket_ptr pointing on empty buckets which need to deallocate
             while (current_bucket_ptr != first_.bucket_ptr_){
                 std::allocator_traits<Allocator>::deallocate(alloc_, *current_bucket_ptr, bucket_size_);
@@ -356,16 +352,16 @@ public:
                 ++current_bucket_ptr;
             }
 
-            if ((*last_.bucket_ptr_+bucket_size_-1) - last_.ptr_ < first_.ptr_ - first_.bucket_ptr_){
+            if (((*last_.bucket_ptr_ + bucket_size_ - 1) - last_.ptr_) < first_.ptr_ - *first_.bucket_ptr_){
             //the last basket has less empty space, so we move all the elements towards the end 
                 iterator current_pos(last_.bucket_ptr_, *last_.bucket_ptr_ + bucket_size_-1);
                 iterator new_last = current_pos;
                 while(last_.ptr_ != first_.ptr_){
-                    current_pos = std::move(*last_);
+                    *current_pos = std::move(*last_);
                     --last_;
                     --current_pos;
                 }
-                current_pos = std::move(*last_);
+                *current_pos = std::move(*last_);
                 first_ = current_pos;
                 last_  = new_last;
             }
@@ -373,11 +369,11 @@ public:
                 iterator current_pos(first_.bucket_ptr_, *first_.bucket_ptr_);
                 iterator new_first = current_pos; 
                 while(first_.ptr_ != last_.ptr_){
-                    current_pos = std::move(*first_);
+                    *current_pos = std::move(*first_);
                     ++first_;
                     ++current_pos;
                 }
-                current_pos = std::move(*first_);
+                *current_pos = std::move(*first_);
                 first_ = new_first;
                 last_  = current_pos;
             }
@@ -386,7 +382,7 @@ public:
             // now current_bucket_ptr pointing on the new allocated array;
             current_bucket_ptr = new T*[new_capacity]; // if new will throw exception -> memory will free automatically
 
-            for (size_t i = 0; i < new_capacity; ++i){
+            for (ptrdiff_t i = 0; i < new_capacity; ++i){
                 current_bucket_ptr[i] = first_.bucket_ptr_[i];
             }
 
@@ -846,11 +842,15 @@ public:
 
 
     iterator erase(const_iterator first, const_iterator last){
+        /*
         ДОАВЬ ОПТИМИЗАЦИЮ - когда ти удаляєш много елементов (> bucket_size)
         то у тебя возникают целие корзини которе модно удалить через перемщение вверхх.
+
         Но пере етим нужно обрезать края - переместить их на конец
             а потом пеермемещать целие контейнери
         протсо нужно поменять последние условие else (худший вариант) и віполанить его чатсично до предпосленего (где края контенера)
+        */
+
 
         if (!size_) {return end();}
 
@@ -868,7 +868,7 @@ public:
                     ++first_;
                 }
                 last_.bucket_ptr_ = first_.bucket_ptr_ = buckets_ptr_+ (buckets_capacity_ / 2);
-                last_.ptr = first_.ptr_ = *first_.bucket_ptr_;
+                last_.ptr_ = first_.ptr_ = *first_.bucket_ptr_;
                 // that is for optimization for next operations of add elements
                 size_ = 0;
             }
@@ -932,7 +932,7 @@ public:
 
                 ptrdiff_t remainder_size = last_.bucket_ptr_ - (first.bucket_ptr_+count_delete_buckets - 1);
                 
-                for (size_t i = 0; i < remainder_size; ++i){
+                for (ptrdiff_t i = 0; i < remainder_size; ++i){
                     std::swap(first.bucket_ptr_[i], first.bucket_ptr_[i+count_delete_buckets]);
                 }  
                 first.bucket_ptr_ += remainder_size; // first.bucket_ptr_ is pointing on first trash_bucket
@@ -955,7 +955,7 @@ public:
                     first.bucket_ptr_ -=count_delete_buckets; 
                 }
                 ptrdiff_t reminder_size = first.bucket_ptr_ - first_.bucket_ptr_;
-                for (size_t i = 0; i < reminder_size; ++i){
+                for (ptrdiff_t i = 0; i < reminder_size; ++i){
                     std::swap(first.bucket_ptr_[i], first.bucket_ptr_[i - count_delete_buckets]);
                 }  
                 first.bucket_ptr_ -=  reminder_size; // first.bucket_ptr_ is pointing on first trach_bucket
@@ -1100,7 +1100,7 @@ public:
     }
 
 
-    ОНОВИ ЦЕЙ МЕТОД
+    //ОНОВИ ЦЕЙ МЕТОД
     void push_back( T&& value ){
         if (!buckets_ptr_){
             buckets_ptr_ = new T*[1]{}; // if new will throw exception -> memory will free automatically
@@ -1119,7 +1119,7 @@ public:
             size_ = 1;
             buckets_capacity_ = 1;
         }
-        else if ((last_.ptr_ - *last_.bucket_ptr_) < (bucket_size_-1)){
+        else if ((last_.ptr_ - *last_.bucket_ptr_) < static_cast<long int>(bucket_size_-1)){
             std::allocator_traits<Allocator>::construct(alloc_, last_.ptr_+1, std::move(value));
             ++last_.ptr_;
         /*
@@ -1129,7 +1129,7 @@ public:
             ++size_;
         }
         else {
-            if ((last_.bucket_ptr_ - buckets_ptr_) < buckets_capacity_-1){
+            if ((last_.bucket_ptr_ - buckets_ptr_) < static_cast<long int>(buckets_capacity_ - 1)){
                 if( !(*(last_.bucket_ptr_ + 1)) ){
                     *(last_.bucket_ptr_ + 1) = std::allocator_traits<Allocator>::allocate(alloc_, bucket_size_);
                     try{
@@ -1218,17 +1218,6 @@ public:
     //void swap( deque& other ) noexcept(noexcept(std::allocator_traits<Allocator>::is_always_equal::value));
 
 };
-
-
-
-
-                                                                 
- 
-
-
-
-
-
 
 } // end namespace Farebl
 #endif // FAREBL_DEQUE_H
