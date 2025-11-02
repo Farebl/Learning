@@ -47,12 +47,12 @@ private:
 
 
         base_iterator& operator--(){
-            if (ptr_ - *bucket_ptr_ > 0){
+            if (ptr_ != *bucket_ptr_){
                 --ptr_;
             }
             else{
                 --bucket_ptr_;
-                ptr_ = bucket_ptr_[deque<T, Allocator>::bucket_size_-1];
+                ptr_ = *bucket_ptr_ + (deque<T, Allocator>::bucket_size_ - 1);
             }
             return *this;
         }
@@ -62,7 +62,65 @@ private:
             --(*this);
             return temp; 
         }
+        
+        
+        base_iterator& operator+=(difference_type value) & {
+            if (value < 0) return *this -= value;
+
+            difference_type result_index = (ptr_ - *bucket_ptr_) + value % deque<T, Allocator>::bucket_size_;
             
+            if (value > static_cast<difference_type>(deque<T, Allocator>::bucket_size_))
+                bucket_ptr_ += value / deque<T, Allocator>::bucket_size_;
+            
+            if (result_index < static_cast<difference_type>(deque<T, Allocator>::bucket_size_)){
+                ptr_ = *bucket_ptr_ + result_index;
+            }
+            else{
+                ++bucket_ptr_;
+                ptr_ = *bucket_ptr_ + (result_index - deque<T, Allocator>::bucket_size_);
+            } 
+            return *this;
+        }
+
+        base_iterator& operator-=(difference_type value) & {
+            if (value < 0) {return *this += value;}
+            
+            difference_type result_index_in_bucket = (ptr_ - *bucket_ptr_) - value % deque<T, Allocator>::bucket_size_;
+            
+            if (value > static_cast<difference_type>(deque<T, Allocator>::bucket_size_))
+                bucket_ptr_ -= value / deque<T, Allocator>::bucket_size_;
+        
+            if (result_index_in_bucket > -1){
+                ptr_ = *bucket_ptr_ + result_index_in_bucket;
+            } 
+            else{
+                --bucket_ptr_;
+                ptr_ = *bucket_ptr_ + (deque<T, Allocator>::bucket_size_ + result_index_in_bucket);
+            } 
+            return *this;
+        }
+
+
+        base_iterator operator+(difference_type value) const {
+            base_iterator temp = *(this);
+            if (value<0)
+                temp-=value;
+            else
+                temp+=value;
+
+            return temp;
+        }
+
+        friend base_iterator operator+(difference_type value, const base_iterator& it) {
+            base_iterator temp = it;
+            if (value<0)
+                temp-=value;
+            else
+                temp+=value;
+
+            return temp; 
+        }
+
 
         base_iterator operator-(difference_type value){
             base_iterator temp = *this; 
@@ -87,66 +145,6 @@ private:
                     + 
                     (other.ptr_ - *other.bucket_ptr_) + ((*bucket_ptr_ + deque<T, Allocator>::bucket_size_) - ptr_)
                 ); 
-                     
-        }
-
-
-        
-        base_iterator& operator+=(difference_type value) & {
-            if (value < 0) return *this -= value;
-
-            difference_type result_index = (ptr_ - *bucket_ptr_) + value % deque<T, Allocator>::bucket_size_;
-            
-            if (value > static_cast<difference_type>(deque<T, Allocator>::bucket_size_))
-                bucket_ptr_ += value / deque<T, Allocator>::bucket_size_;
-            
-            if (result_index < static_cast<difference_type>(deque<T, Allocator>::bucket_size_)){
-                ptr_ = *bucket_ptr_ + result_index;
-            }
-            else{
-                ++bucket_ptr_;
-                ptr_ = *bucket_ptr_ + (result_index - deque<T, Allocator>::bucket_size_);
-            } 
-            return *this;
-        }
-
-        base_iterator& operator-=(difference_type value) & {
-            if (value < 0) {return *this += value;}
-            
-            difference_type result_index = (ptr_ - *bucket_ptr_) - value % deque<T, Allocator>::bucket_size_;
-            
-            if (value > static_cast<difference_type>(deque<T, Allocator>::bucket_size_))
-                bucket_ptr_ -= value / deque<T, Allocator>::bucket_size_;
-        
-            if (result_index > -1){
-                ptr_ = *bucket_ptr_ + result_index;
-            } 
-            else{
-                --bucket_ptr_;
-                ptr_ = *bucket_ptr_ + (deque<T, Allocator>::bucket_size_+result_index );
-            } 
-            return *this;
-        }
-
-
-        base_iterator operator+(difference_type value) const {
-            base_iterator temp = *(this);
-            if (value<0)
-                temp-=value;
-            else
-                temp+=value;
-
-            return temp;
-        }
-
-        friend base_iterator operator+(difference_type value, const base_iterator& it) {
-            base_iterator temp = it;
-            if (value<0)
-                temp-=value;
-            else
-                temp+=value;
-
-            return temp; 
         }
 
 
@@ -306,12 +304,12 @@ public:
     */
 
     iterator begin() {return {first_};}
-    const_iterator begin() const {return const_cast<std::remove_cv_t<decltype(this)>>(this)->begin();} //this is pointer on non-const object, that's why is call non-const begin() (to avoid recursive call)
+    const_iterator begin() const {return {first_.bucket_ptr_, first_.ptr_};}
     const_iterator cbegin() const noexcept {return begin();}
 
     //last_ pointing on the last element (not to the next position after last element, but straight at last element)
     iterator end() {return {last_.bucket_ptr_, last_.ptr_ + 1};}
-    const_iterator end() const {return const_cast<std::remove_cv_t<decltype(this)>>(this)->end();} //this is pointer on non-const object, that's why is call non-const begin() (to avoid recursive call)
+    const_iterator end() const {return {last_.bucket_ptr_, last_.ptr_ + 1};} 
     const_iterator cend() const noexcept {return end();}
 
 
@@ -569,18 +567,18 @@ public:
         iterator first_it(first.bucket_ptr_, first.ptr_);
         iterator second_it(last.bucket_ptr_, last.ptr_);
 
-        if (last_ - first < first - first_){
+        if (last_ - last < first - first_){
         // move delet-elements to end side
             
             iterator return_pos = first_it;
             iterator end_pos = end();
             while(second_it != end_pos){
-                *first_it = std::move(*second_it); // if here will throw exception - nothing to repair;
+                std::swap(*first_it, *second_it);
                 ++first_it;
                 ++second_it;
-            }
-            
-            // there, first_it points on the new last_;
+            } 
+            // there, first_it points on the first trash-element;
+            --first_it; // there, first_it points on the new last_;
             while(last_ != first_it){
                 std::allocator_traits<Allocator>::destroy(alloc_, last_.ptr_);
                 --last_;
@@ -594,12 +592,12 @@ public:
         --second_it;
         iterator end_pos = begin() - 1;
         while(first_it != end_pos){
-            *second_it = std::move(*first_it);
+            std::swap(*first_it, *second_it);
             --first_it;
             --second_it;
         }
- 
-        // second_it points on the new first_;
+        // second_it points on the last trash-elemnt;
+        ++second_it; // second_it points on the new first_;
         while(first_ != second_it){
             std::allocator_traits<Allocator>::destroy(alloc_, first_.ptr_);
             ++first_;
