@@ -1,19 +1,18 @@
 #ifndef FAREBL_DEQUE_H
 #define FAREBL_DEQUE_H
 
-
 #include <memory>
 #include <limits>
 
 namespace Farebl{
 
-template <typename T, typename Allocator = std::allocator<T>>
+template <typename T, typename Allocator = std::allocator<T>, size_t BucketSize = ((sizeof(T) < 256) ? 4096/sizeof(T) : 16)>
 class deque{
 private:
     template <bool IsConst = false>
     class base_iterator{
     private:
-        friend class deque<T, Allocator>;
+        friend class deque<T, Allocator, BucketSize>;
         T** bucket_ptr_;
         T* ptr_;
         base_iterator(T** bucket_ptr, T* ptr): bucket_ptr_(bucket_ptr), ptr_(ptr){}
@@ -29,7 +28,7 @@ private:
 	    pointer operator->() const {return ptr_;}
 
         base_iterator& operator++(){
-            if (ptr_ - *bucket_ptr_ < static_cast<difference_type>(deque<T, Allocator>::bucket_size_-1)){
+            if (ptr_ - *bucket_ptr_ < static_cast<difference_type>(BucketSize-1)){
                ++ptr_;
             }
             else{
@@ -52,7 +51,7 @@ private:
             }
             else{
                 --bucket_ptr_;
-                ptr_ = *bucket_ptr_ + (deque<T, Allocator>::bucket_size_ - 1);
+                ptr_ = *bucket_ptr_ + (BucketSize - 1);
             }
             return *this;
         }
@@ -67,17 +66,17 @@ private:
         base_iterator& operator+=(difference_type value) & {
             if (value < 0) return *this -= value;
 
-            difference_type result_index = (ptr_ - *bucket_ptr_) + value % deque<T, Allocator>::bucket_size_;
+            difference_type result_index = (ptr_ - *bucket_ptr_) + value % BucketSize;
             
-            if (value > static_cast<difference_type>(deque<T, Allocator>::bucket_size_))
-                bucket_ptr_ += value / deque<T, Allocator>::bucket_size_;
+            if (value >= static_cast<difference_type>(BucketSize))
+                bucket_ptr_ += value / BucketSize;
             
-            if (result_index < static_cast<difference_type>(deque<T, Allocator>::bucket_size_)){
+            if (result_index < static_cast<difference_type>(BucketSize)){
                 ptr_ = *bucket_ptr_ + result_index;
             }
             else{
                 ++bucket_ptr_;
-                ptr_ = *bucket_ptr_ + (result_index - deque<T, Allocator>::bucket_size_);
+                ptr_ = *bucket_ptr_ + (result_index - BucketSize);
             } 
             return *this;
         }
@@ -85,17 +84,17 @@ private:
         base_iterator& operator-=(difference_type value) & {
             if (value < 0) {return *this += value;}
             
-            difference_type result_index_in_bucket = (ptr_ - *bucket_ptr_) - value % deque<T, Allocator>::bucket_size_;
+            difference_type result_index_in_bucket = (ptr_ - *bucket_ptr_) - value % BucketSize;
             
-            if (value > static_cast<difference_type>(deque<T, Allocator>::bucket_size_))
-                bucket_ptr_ -= value / deque<T, Allocator>::bucket_size_;
+            if (value > static_cast<difference_type>(BucketSize))
+                bucket_ptr_ -= value / BucketSize;
         
             if (result_index_in_bucket > -1){
                 ptr_ = *bucket_ptr_ + result_index_in_bucket;
             } 
             else{
                 --bucket_ptr_;
-                ptr_ = *bucket_ptr_ + (deque<T, Allocator>::bucket_size_ + result_index_in_bucket);
+                ptr_ = *bucket_ptr_ + (BucketSize + result_index_in_bucket);
             } 
             return *this;
         }
@@ -135,15 +134,15 @@ private:
             
             else if(bucket_ptr_ > other.bucket_ptr_)
                 return (
-                    (((bucket_ptr_ - other.bucket_ptr_) -1) * deque<T, Allocator>::bucket_size_) 
+                    (((bucket_ptr_ - other.bucket_ptr_) -1) * BucketSize) 
                     + 
-                    (ptr_ - *bucket_ptr_) + ((*other.bucket_ptr_ + deque<T, Allocator>::bucket_size_) - other.ptr_)
+                    (ptr_ - *bucket_ptr_) + ((*other.bucket_ptr_ + BucketSize) - other.ptr_)
                 );
             else 
                 return( 
-                    (((other.bucket_ptr_- bucket_ptr_) -1) * deque<T, Allocator>::bucket_size_)
+                    (((other.bucket_ptr_- bucket_ptr_) -1) * BucketSize)
                     + 
-                    (other.ptr_ - *other.bucket_ptr_) + ((*bucket_ptr_ + deque<T, Allocator>::bucket_size_) - ptr_)
+                    (other.ptr_ - *other.bucket_ptr_) + ((*bucket_ptr_ + BucketSize) - ptr_)
                 ); 
         }
 
@@ -202,7 +201,6 @@ private:
     Allocator alloc_;
     using AllocatorPtrOnBucket = typename std::allocator_traits<Allocator>::template rebind_alloc<T*>;
     AllocatorPtrOnBucket alloc_ptr_on_bucket_;
-    static const size_t bucket_size_ = (sizeof(T) < 256) ? 4096/sizeof(T) : 16; 
 
 public:
 
@@ -308,8 +306,18 @@ public:
     const_iterator cbegin() const noexcept {return begin();}
 
     //last_ pointing on the last element (not to the next position after last element, but straight at last element)
-    iterator end() {return {last_.bucket_ptr_, last_.ptr_ + 1};}
-    const_iterator end() const {return {last_.bucket_ptr_, last_.ptr_ + 1};} 
+    iterator end() {
+        if (buckets_ptr_ == nullptr){
+            return {nullptr, nullptr};
+        }
+        return {last_ + 1 };
+    }
+    const_iterator end() const {
+        if (buckets_ptr_ == nullptr){
+            return {nullptr, nullptr};
+        }
+        return {last_ + 1};
+    } 
     const_iterator cend() const noexcept {return end();}
 
 
@@ -331,10 +339,12 @@ public:
     long max_size() const {return std::numeric_limits<difference_type>::max();}
 
     void shrink_to_fit(){
+        if (buckets_ptr_ == nullptr){ return; }
+        
         if (size_ == 0){
             T** end_pos = last_allocated_bucket_ptr_ + 1;
             while(first_allocated_bucket_ptr_ != end_pos){ 
-                std::allocator_traits<Allocator>::deallocate(alloc_, *first_allocated_bucket_ptr_, bucket_size_);
+                std::allocator_traits<Allocator>::deallocate(alloc_, *first_allocated_bucket_ptr_, BucketSize);
                 ++first_allocated_bucket_ptr_;
             }
             std::allocator_traits<AllocatorPtrOnBucket>::deallocate(alloc_ptr_on_bucket_, buckets_ptr_, buckets_capacity_);
@@ -354,15 +364,15 @@ public:
             (((last_.ptr_ - *last_.bucket_ptr_) < (first_.ptr_ - *first_.bucket_ptr_)) ? 0 : 1);
         
         T** new_buckets_ptr = std::allocator_traits<AllocatorPtrOnBucket>::allocate(alloc_ptr_on_bucket_, new_buckets_capacity);
-        size_t success_allocated_count = 0;
+        decltype(new_buckets_capacity) success_allocated_count = 0;
         try{
             for (; success_allocated_count < new_buckets_capacity; ++success_allocated_count){
-                new_buckets_ptr[success_allocated_count] = std::allocator_traits<Allocator>::allocate(alloc_, bucket_size_);
+                new_buckets_ptr[success_allocated_count] = std::allocator_traits<Allocator>::allocate(alloc_, BucketSize);
             }
         }
         catch(...){  
-            for(size_t i = 0; i < success_allocated_count; ++i){
-                std::allocator_traits<Allocator>::deallocate(alloc_, new_buckets_ptr[i], bucket_size_);
+            for(decltype(success_allocated_count) i = 0; i < success_allocated_count; ++i){
+                std::allocator_traits<Allocator>::deallocate(alloc_, new_buckets_ptr[i], BucketSize);
             }
             std::allocator_traits<AllocatorPtrOnBucket>::deallocate(alloc_ptr_on_bucket_, new_buckets_ptr, new_buckets_capacity);
             throw;
@@ -383,8 +393,8 @@ public:
                 std::allocator_traits<Allocator>::destroy(alloc_, new_deque_it.ptr_);
                 --new_deque_it;
             }
-            for(size_t i = 0; i < success_allocated_count; ++i){
-                std::allocator_traits<Allocator>::deallocate(alloc_, new_buckets_ptr[i], bucket_size_);
+            for(decltype(success_allocated_count) i = 0; i < success_allocated_count; ++i){
+                std::allocator_traits<Allocator>::deallocate(alloc_, new_buckets_ptr[i], BucketSize);
             }
             std::allocator_traits<AllocatorPtrOnBucket>::deallocate(alloc_ptr_on_bucket_, new_buckets_ptr, new_buckets_capacity);
             throw;
@@ -394,7 +404,7 @@ public:
         
         T** end_bucket_pos = last_allocated_bucket_ptr_ + 1;
         while(first_allocated_bucket_ptr_ != end_bucket_pos){
-            std::allocator_traits<Allocator>::deallocate(alloc_, *first_allocated_bucket_ptr_, bucket_size_);
+            std::allocator_traits<Allocator>::deallocate(alloc_, *first_allocated_bucket_ptr_, BucketSize);
         }
         std::allocator_traits<AllocatorPtrOnBucket>::deallocate(alloc_ptr_on_bucket_, buckets_ptr_, buckets_capacity_);
         
@@ -526,6 +536,7 @@ public:
                     std::swap(first.bucket_ptr_[i], first.bucket_ptr_[i+count_delete_buckets]);
                 }  
                 first.bucket_ptr_ += remainder_size; // first.bucket_ptr_ is pointing on first trash_bucket
+                first.ptr_ = *first.bucket_ptr_; // updating ptr_
                 last_.bucket_ptr_ = first.bucket_ptr_-1;
 
                 T** end_pos = first.bucket_ptr_ + count_delete_buckets;
@@ -612,12 +623,12 @@ public:
         if (!buckets_ptr_){
             buckets_ptr_ = std::allocator_traits<AllocatorPtrOnBucket>::allocate(alloc_ptr_on_bucket_, 1);
             try{
-                *buckets_ptr_ = std::allocator_traits<Allocator>::allocate(alloc_, bucket_size_);
+                *buckets_ptr_ = std::allocator_traits<Allocator>::allocate(alloc_, BucketSize);
                 try{
                     std::allocator_traits<Allocator>::construct(alloc_, *buckets_ptr_, value);
                 }
                 catch(...){
-                    std::allocator_traits<Allocator>::deallocate(alloc_, *buckets_ptr_, bucket_size_);
+                    std::allocator_traits<Allocator>::deallocate(alloc_, *buckets_ptr_, BucketSize);
                     throw;
                 }
             }
@@ -632,7 +643,7 @@ public:
             size_ = 1;
             buckets_capacity_ = 1;
         }
-        else if ((last_.ptr_ - *last_.bucket_ptr_) < (bucket_size_ - 1)){
+        else if ((last_.ptr_ - *last_.bucket_ptr_) < static_cast<long int>(BucketSize - 1)){
             std::allocator_traits<Allocator>::construct(alloc_, last_.ptr_ + 1, value);
             ++last_.ptr_;
         /*
@@ -642,17 +653,17 @@ public:
             ++size_;
         }
         else {
-            if ((last_.bucket_ptr_ - buckets_ptr_) < buckets_capacity_-1){
+            if ((last_.bucket_ptr_ - buckets_ptr_) < static_cast<long int>(buckets_capacity_ - 1)){
                 if(last_.bucket_ptr_ != last_allocated_bucket_ptr_){
                     std::allocator_traits<Allocator>::construct(alloc_, *(last_.bucket_ptr_ + 1), value);
                 }
                 else{
-                    *(last_allocated_bucket_ptr_ + 1) = std::allocator_traits<Allocator>::allocate(alloc_, bucket_size_);
+                    *(last_allocated_bucket_ptr_ + 1) = std::allocator_traits<Allocator>::allocate(alloc_, BucketSize);
                     try{
                         std::allocator_traits<Allocator>::construct(alloc_, *(last_allocated_bucket_ptr_ + 1), value);
                     }
                     catch(...){
-                        std::allocator_traits<Allocator>::deallocate(alloc_, *(last_allocated_bucket_ptr_ + 1), bucket_size_);
+                        std::allocator_traits<Allocator>::deallocate(alloc_, *(last_allocated_bucket_ptr_ + 1), BucketSize);
                         throw;
                     }
                     ++last_allocated_bucket_ptr_;
@@ -661,26 +672,26 @@ public:
                 ++size_;
                 return;
             }
-            else{
-                size_t old_buckets_capacity = (first_allocated_bucket_ptr_ - last_allocated_bucket_ptr_ + 1);
+            else{ // the worst case – need reallocation
+                size_t old_buckets_capacity = (last_allocated_bucket_ptr_ - first_allocated_bucket_ptr_ + 1);
                 size_t new_buckets_capacity = old_buckets_capacity * 3;
                 
                 T** new_buckets_ptr = std::allocator_traits<AllocatorPtrOnBucket>::allocate(alloc_ptr_on_bucket_, new_buckets_capacity);
 
                 T** old_buckets_pos = first_allocated_bucket_ptr_;
-                T** new_buckets_pos = new_buckets_ptr + new_buckets_capacity;
+                T** new_buckets_pos = new_buckets_ptr + old_buckets_capacity;
             
                 for (T** end_pos = last_allocated_bucket_ptr_ + 1; old_buckets_pos != end_pos; ++old_buckets_pos, ++new_buckets_pos){
                     *new_buckets_pos = *old_buckets_pos;
                 }
                 
                 try{
-                    *new_buckets_pos = std::allocator_traits<Allocator>::allocate(alloc_, bucket_size_);
+                    *new_buckets_pos = std::allocator_traits<Allocator>::allocate(alloc_, BucketSize);
                     try{
                         std::allocator_traits<Allocator>::construct(alloc_, *new_buckets_pos, value);
                     }
                     catch(...){
-                        std::allocator_traits<Allocator>::deallocate(alloc_, *new_buckets_pos, bucket_size_);
+                        std::allocator_traits<Allocator>::deallocate(alloc_, *new_buckets_pos, BucketSize);
                         throw;
                     }
                 }
@@ -740,6 +751,9 @@ public:
     //void swap( deque& other ) noexcept(noexcept(std::allocator_traits<Allocator>::is_always_equal::value));
 
 };
+
+template<typename T, size_t BucketSize, typename Allocator = std::allocator<T>>
+using deque_dimensional = deque<T, Allocator, BucketSize>;
 
 } // end namespace Farebl
 #endif // FAREBL_DEQUE_H
