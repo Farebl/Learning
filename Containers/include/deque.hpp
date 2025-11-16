@@ -28,12 +28,14 @@ private:
 	    pointer operator->() const {return ptr_;}
 
         base_iterator& operator++(){
-            if (ptr_ - *bucket_ptr_ < static_cast<difference_type>(BucketSize-1)){
-               ++ptr_;
-            }
-            else{
-                ++bucket_ptr_;
-                ptr_ = *bucket_ptr_; 
+            if (bucket_ptr_ != nullptr){
+                if (ptr_ - *bucket_ptr_ < static_cast<difference_type>(BucketSize-1)){
+                   ++ptr_;
+                }
+                else{
+                    ++bucket_ptr_;
+                    ptr_ = *bucket_ptr_; 
+                }
             }
             return *this;
         }
@@ -46,12 +48,14 @@ private:
 
 
         base_iterator& operator--(){
-            if (ptr_ != *bucket_ptr_){
-                --ptr_;
-            }
-            else{
-                --bucket_ptr_;
-                ptr_ = *bucket_ptr_ + (BucketSize - 1);
+            if (bucket_ptr_ != nullptr){
+                if (ptr_ != *bucket_ptr_){
+                    --ptr_;
+                }
+                else{
+                    --bucket_ptr_;
+                    ptr_ = *bucket_ptr_ + (BucketSize - 1);
+                }
             }
             return *this;
         }
@@ -65,37 +69,39 @@ private:
         
         base_iterator& operator+=(difference_type value) & {
             if (value < 0) return *this -= value;
-
-            difference_type result_index = (ptr_ - *bucket_ptr_) + value % BucketSize;
-            
-            if (value >= static_cast<difference_type>(BucketSize))
-                bucket_ptr_ += value / BucketSize;
-            
-            if (result_index < static_cast<difference_type>(BucketSize)){
-                ptr_ = *bucket_ptr_ + result_index;
+            if (bucket_ptr_ != nullptr){
+                difference_type result_index = (ptr_ - *bucket_ptr_) + value % BucketSize;
+                
+                if (value >= static_cast<difference_type>(BucketSize))
+                    bucket_ptr_ += value / BucketSize;
+                
+                if (result_index < static_cast<difference_type>(BucketSize)){
+                    ptr_ = *bucket_ptr_ + result_index;
+                }
+                else{
+                    ++bucket_ptr_;
+                    ptr_ = *bucket_ptr_ + (result_index - BucketSize);
+                } 
             }
-            else{
-                ++bucket_ptr_;
-                ptr_ = *bucket_ptr_ + (result_index - BucketSize);
-            } 
             return *this;
         }
 
         base_iterator& operator-=(difference_type value) & {
             if (value < 0) {return *this += value;}
+            if (bucket_ptr_ != nullptr){
+                difference_type result_index_in_bucket = (ptr_ - *bucket_ptr_) - value % BucketSize;
+                
+                if (value > static_cast<difference_type>(BucketSize))
+                    bucket_ptr_ -= value / BucketSize;
             
-            difference_type result_index_in_bucket = (ptr_ - *bucket_ptr_) - value % BucketSize;
-            
-            if (value > static_cast<difference_type>(BucketSize))
-                bucket_ptr_ -= value / BucketSize;
-        
-            if (result_index_in_bucket > -1){
-                ptr_ = *bucket_ptr_ + result_index_in_bucket;
-            } 
-            else{
-                --bucket_ptr_;
-                ptr_ = *bucket_ptr_ + (BucketSize + result_index_in_bucket);
-            } 
+                if (result_index_in_bucket > -1){
+                    ptr_ = *bucket_ptr_ + result_index_in_bucket;
+                } 
+                else{
+                    --bucket_ptr_;
+                    ptr_ = *bucket_ptr_ + (BucketSize + result_index_in_bucket);
+                } 
+            }
             return *this;
         }
 
@@ -127,8 +133,13 @@ private:
             return temp; 
         }
 
+
         template<bool OtherIsConst>
         difference_type operator-(const base_iterator<OtherIsConst>& other){
+            if (bucket_ptr_ == nullptr || other.bucket_ptr_ == nullptr){
+                return bucket_ptr_ - other.bucket_ptr_;
+            }
+
             if(bucket_ptr_ == other.bucket_ptr_)
                 return ptr_ - other.ptr_;
             
@@ -321,14 +332,14 @@ public:
     const_iterator cend() const noexcept {return end();}
 
 
-    reverse_iterator rbegin() {return std::make_reverse_iterator<iterator>(begin());}
-    const_reverse_iterator rbegin() const {return const_cast<std::remove_cv_t<decltype(this)>>(this)->rbegin();}
-    const_reverse_iterator crbegin() const noexcept {return std::make_reverse_iterator<const_iterator>(cbegin());}
+    reverse_iterator rbegin() {return std::make_reverse_iterator<iterator>(end()-1);}
+    const_reverse_iterator rbegin() const {return std::make_reverse_iterator<const_iterator>(cend()-1);}
+    const_reverse_iterator crbegin() const noexcept {return rbegin();}
     
 
-    reverse_iterator rend() {return std::make_reverse_iterator<iterator>(end());}
-    const_reverse_iterator rend() const {return const_cast<std::remove_cv_t<decltype(this)>>(this)->cend();}
-    const_reverse_iterator crend() const noexcept {return std::make_reverse_iterator<iterator>(cend());}
+    reverse_iterator rend() {return std::make_reverse_iterator<iterator>(begin()-1);}
+    const_reverse_iterator rend() const {return std::make_reverse_iterator<const_iterator>(cbegin()-1);}
+    const_reverse_iterator crend() const noexcept {return rend();}
 
 
 
@@ -452,16 +463,6 @@ public:
 
 
     iterator erase(const_iterator first, const_iterator last){
-        /*
-        ДОАВЬ ОПТИМИЗАЦИЮ - когда ти удаляєш много елементов (> bucket_size)
-        то у тебя возникают целие корзини которе модно удалить через перемщение вверхх.
-
-        Но пере етим нужно обрезать края - переместить их на конец
-            а потом пеермемещать целие контейнери
-        протсо нужно поменять последние условие else (худший вариант) и віполанить его чатсично до предпосленего (где края контенера)
-        */
-
-
         if (size_ == 0) {return end();}
 
         if (first == last) {    
