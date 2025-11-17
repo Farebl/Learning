@@ -8,6 +8,10 @@ namespace Farebl{
 
 template <typename T, typename Allocator = std::allocator<T>, size_t BucketSize = ((sizeof(T) < 256) ? 4096/sizeof(T) : 16)>
 class deque{
+
+    static_assert(BucketSize > 0, "The bucket size must be 1 or greater");
+    static_assert(BucketSize <= 104'857'600/sizeof(T), "The bucket size cannot exceed 100 MB");
+        
 private:
     template <bool IsConst = false>
     class base_iterator{
@@ -301,16 +305,6 @@ public:
     const_reference back() const {return *last_;}
 
 
-    /* IMPORTANT for end/cend/rend:
-    end() iterator pointing to the next address after the last_ element and belongs to the same bucket.
-    that is end().bucket_ptr_ == last_.bucket_ptr_;
-    This is necessary for the correct decrement work, because during --it or it-- there is a dereference 
-    of the pointer to the bucket_ptr_;
-
-    If, implementation of the end() was such as (last_ + 1), than the bucket_ptr_ of the result iterator of 
-    the end() will pointing to the position, which is out_of_range of the outer array.
-    That is, the end().bucket_ptr_ will pointing to buckets_ptr_[capacity] -> dereference such pointer is UB
-    */
 
     iterator begin() {return {first_};}
     const_iterator begin() const {return {first_.bucket_ptr_, first_.ptr_};}
@@ -752,6 +746,7 @@ public:
     //void swap( deque& other ) noexcept(noexcept(std::allocator_traits<Allocator>::is_always_equal::value));
 
 };
+
 
 template<typename T, size_t BucketSize, typename Allocator = std::allocator<T>>
 using deque_dimensional = deque<T, Allocator, BucketSize>;
