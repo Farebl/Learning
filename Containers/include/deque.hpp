@@ -722,7 +722,12 @@ public:
     */
 
 
-    //void pop_back();
+    void pop_back(){
+        if (size_ == 0){return;}
+        std::allocator_traits<Allocator>::destroy(alloc_, last_.ptr_);
+        --last_;
+        --size_;
+    }
 
 
     //void push_front( const T& value );
@@ -736,7 +741,12 @@ public:
     */
 
 
-    //void pop_front();
+    void pop_front(){
+        if (size_ == 0){return;}
+        std::allocator_traits<Allocator>::destroy(alloc_, first_.ptr_);
+        ++first_;
+        --size_;
+    }
     
 
     //void resize( size_type count );
