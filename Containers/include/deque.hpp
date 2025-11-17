@@ -217,6 +217,28 @@ private:
     using AllocatorPtrOnBucket = typename std::allocator_traits<Allocator>::template rebind_alloc<T*>;
     AllocatorPtrOnBucket alloc_ptr_on_bucket_;
 
+
+    void center_the_iterators_firs_and_last_(){
+    /*
+        Moving iterators (first_ and last_) to the begin of the middle allocated bucket of the deque,
+        to optimize subsequent operations of inserting elements in the begin or end.
+    */
+        size_t index_of_middle_allocated_bucket = 
+            (first_allocated_bucket_ptr_ - buckets_ptr_)
+                +
+            ((last_allocated_bucket_ptr_ - first_allocated_bucket_ptr_) / 2);
+
+        last_.bucket_ptr_ = buckets_ptr_ + index_of_middle_allocated_bucket;
+        last_.ptr_ = *last_.bucket_ptr_;
+        first_ = last_ + 1;
+    /*
+        Now, if you insert an element at the end, the new element will be at position 
+        last_+1, after which the iterator last_ is shuffled forward by 1 position. 
+        Due to this, the iterators first_ and last_ point to position of new added element.                  
+    */ 
+    }
+
+
 public:
 
 
@@ -727,6 +749,9 @@ public:
         std::allocator_traits<Allocator>::destroy(alloc_, last_.ptr_);
         --last_;
         --size_;
+        if (size_ == 0){
+            center_the_iterators_firs_and_last_();
+        }
     }
 
 
@@ -746,6 +771,9 @@ public:
         std::allocator_traits<Allocator>::destroy(alloc_, first_.ptr_);
         ++first_;
         --size_;
+        if (size_ == 0){
+            center_the_iterators_firs_and_last_();
+        }
     }
     
 
