@@ -15,25 +15,28 @@ class deque{
 private:
     template <bool IsConst = false>
     class base_iterator{
-    private:
-        friend class deque<T, Allocator, BucketSize>;
-        T** bucket_ptr_;
-        T* ptr_;
-        base_iterator(T** bucket_ptr, T* ptr): bucket_ptr_(bucket_ptr), ptr_(ptr){}
+
     public:
         using difference_type   = std::ptrdiff_t;
         using value_type        = T;
         using pointer           = typename std::conditional<IsConst, const T*, T*>::type;
         using reference         = typename std::conditional<IsConst, const T&, T&>::type; 
         using iterator_category = std::random_access_iterator_tag;
-    
+
+    private:
+        friend class deque<T, Allocator, BucketSize>;
+        T** bucket_ptr_;
+        pointer ptr_;
+        base_iterator(T** bucket_ptr, pointer ptr): bucket_ptr_(bucket_ptr), ptr_(ptr){}
+    public:
+
         reference operator*() const {return *ptr_; }
 
 	    pointer operator->() const {return ptr_;}
 
         base_iterator& operator++(){
             if (bucket_ptr_ != nullptr){
-                if (ptr_ - *bucket_ptr_ < static_cast<difference_type>(BucketSize-1)){
+                if (const_cast<T*>(ptr_) - *bucket_ptr_ < static_cast<difference_type>(BucketSize-1)){
                    ++ptr_;
                 }
                 else{
@@ -74,7 +77,7 @@ private:
         base_iterator& operator+=(difference_type value) & {
             if (value < 0) return *this -= value;
             if (bucket_ptr_ != nullptr){
-                difference_type result_index = (ptr_ - *bucket_ptr_) + value % BucketSize;
+                difference_type result_index = (const_cast<T*>(ptr_) - *bucket_ptr_) + value % BucketSize;
                 
                 if (value >= static_cast<difference_type>(BucketSize))
                     bucket_ptr_ += value / BucketSize;
@@ -93,7 +96,7 @@ private:
         base_iterator& operator-=(difference_type value) & {
             if (value < 0) {return *this += value;}
             if (bucket_ptr_ != nullptr){
-                difference_type result_index_in_bucket = (ptr_ - *bucket_ptr_) - value % BucketSize;
+                difference_type result_index_in_bucket = (const_cast<T*>(ptr_) - *bucket_ptr_) - value % BucketSize;
                 
                 if (value > static_cast<difference_type>(BucketSize))
                     bucket_ptr_ -= value / BucketSize;
@@ -119,8 +122,8 @@ private:
 
             return temp;
         }
-
-        friend base_iterator operator+(difference_type value, const base_iterator& it) {
+        template <bool OtherIsConst>
+        friend base_iterator operator+(difference_type value, const base_iterator<OtherIsConst>& it) {
             base_iterator temp = it;
             if (value<0)
                 temp-=value;
@@ -144,21 +147,23 @@ private:
                 return bucket_ptr_ - other.bucket_ptr_;
             }
 
-            if(bucket_ptr_ == other.bucket_ptr_)
-                return ptr_ - other.ptr_;
-            
-            else if(bucket_ptr_ > other.bucket_ptr_)
+            if(bucket_ptr_ == other.bucket_ptr_){
+                return const_cast<T*>(ptr_) - const_cast<T*>(other.ptr_); 
+            }
+            else if(bucket_ptr_ > other.bucket_ptr_){
                 return (
                     (((bucket_ptr_ - other.bucket_ptr_) -1) * BucketSize) 
                     + 
-                    (ptr_ - *bucket_ptr_) + ((*other.bucket_ptr_ + BucketSize) - other.ptr_)
+                    (const_cast<T*>(ptr_) - *bucket_ptr_) + ((*other.bucket_ptr_ + BucketSize) - const_cast<T*>(other.ptr_))
                 );
-            else 
+            }
+            else{
                 return( 
-                    (((other.bucket_ptr_- bucket_ptr_) -1) * BucketSize)
+                    (((other.bucket_ptr_ - bucket_ptr_) -1) * BucketSize)
                     + 
-                    (other.ptr_ - *other.bucket_ptr_) + ((*bucket_ptr_ + BucketSize) - ptr_)
+                    (const_cast<T*>(other.ptr_) - *other.bucket_ptr_) + ((*bucket_ptr_ + BucketSize) - const_cast<T*>(ptr_))
                 ); 
+            }
         }
 
 
@@ -188,7 +193,7 @@ private:
         template<bool OtherIsConst>
         bool operator<=(const base_iterator<OtherIsConst>& other){    return !(*this > other); }
 
-        operator base_iterator<true>(){return {bucket_ptr_, ptr_};}
+        operator base_iterator<true>(){return {bucket_ptr_, const_cast<const T*>(ptr_)};}
     };
 public: 
     using value_type             = T;
@@ -329,7 +334,7 @@ public:
 
 
     iterator begin() {return {first_};}
-    const_iterator begin() const {return {first_.bucket_ptr_, first_.ptr_};}
+    const_iterator begin() const {return {first_.bucket_ptr_, const_cast<const T*>(first_.ptr_)};}
     const_iterator cbegin() const noexcept {return begin();}
 
     //last_ pointing on the last element (not to the next position after last element, but straight at last element)
@@ -348,13 +353,13 @@ public:
     const_iterator cend() const noexcept {return end();}
 
 
-    reverse_iterator rbegin() {return std::make_reverse_iterator<iterator>(end()-1);}
-    const_reverse_iterator rbegin() const {return std::make_reverse_iterator<const_iterator>(cend()-1);}
+    reverse_iterator rbegin() {return std::make_reverse_iterator<iterator>(end());}
+    const_reverse_iterator rbegin() const {return std::make_reverse_iterator<const_iterator>(cend());}
     const_reverse_iterator crbegin() const noexcept {return rbegin();}
     
 
-    reverse_iterator rend() {return std::make_reverse_iterator<iterator>(begin()-1);}
-    const_reverse_iterator rend() const {return std::make_reverse_iterator<const_iterator>(cbegin()-1);}
+    reverse_iterator rend() {return std::make_reverse_iterator<iterator>(begin());}
+    const_reverse_iterator rend() const {return std::make_reverse_iterator<const_iterator>(cbegin());}
     const_reverse_iterator crend() const noexcept {return rend();}
 
 
@@ -367,7 +372,7 @@ public:
 
     void shrink_to_fit(){
         if (buckets_ptr_ == nullptr){ return; }
-        
+         
         if (size_ == 0){
             T** end_pos = last_allocated_bucket_ptr_ + 1;
             while(first_allocated_bucket_ptr_ != end_pos){ 
@@ -482,7 +487,7 @@ public:
         if (size_ == 0) {return end();}
 
         if (first == last) {    
-            return {last.bucket_ptr_, last.ptr_};
+            return {last.bucket_ptr_, const_cast<T*>(last.ptr_)};
         } 
         /*
             like in gcc & clang here is no checking (first > last);
@@ -507,7 +512,7 @@ public:
                     --size_;
                 }
             } 
-            return {last.bucket_ptr_, last.ptr_};
+            return {last.bucket_ptr_, const_cast<T*>(last.ptr_)}; 
         }
         else if (last.ptr_ == cend().ptr_){
             const_iterator end_pos = first - 1;
@@ -516,7 +521,7 @@ public:
                 --last_;
                 --size_;
             }
-            return {last.bucket_ptr_, last.ptr_};
+            return {last.bucket_ptr_, const_cast<T*>(last.ptr_)};
         }
 
         else if (first.ptr_ == *first.bucket_ptr_ && last.ptr_ == *last.bucket_ptr_){
@@ -547,22 +552,22 @@ public:
                     first.bucket_ptr_ +=count_delete_buckets; 
                 }
                 // now the distance between the last_bucket of the deck and the bucket block of pointers_to_delete_buckets is less than the size of the bucket block
-                difference_type remainder_size = last_.bucket_ptr_ - (first.bucket_ptr_ + count_delete_buckets - 1);
+                difference_type remainder_size = last_.bucket_ptr_ - first.bucket_ptr_ + count_delete_buckets - 1;
 
                 for (difference_type i = 0; i < remainder_size; ++i){
                     std::swap(first.bucket_ptr_[i], first.bucket_ptr_[i+count_delete_buckets]);
                 }  
                 first.bucket_ptr_ += remainder_size; // first.bucket_ptr_ is pointing on first trash_bucket
                 first.ptr_ = *first.bucket_ptr_; // updating ptr_
-                last_.bucket_ptr_ = first.bucket_ptr_-1;
+                last_.bucket_ptr_ = first.bucket_ptr_ - 1;
 
                 T** end_pos = first.bucket_ptr_ + count_delete_buckets;
                 while(first.bucket_ptr_ != end_pos){
-                    std::allocator_traits<Allocator>::destroy(alloc_, first.ptr_);
+                    std::allocator_traits<Allocator>::destroy(alloc_, const_cast<T*>(first.ptr_));
                     ++first; 
                 }       
 
-                return {last_.bucket_ptr_ - old_distance_from_last_to_end, last.ptr_};
+                return {last_.bucket_ptr_ - old_distance_from_last_to_end, const_cast<T*>(last.ptr_)};
             }
 
             // move to begin
@@ -582,18 +587,17 @@ public:
             first_.bucket_ptr_ = first.bucket_ptr_ + count_delete_buckets; 
 
             while(first.bucket_ptr_ != first_.bucket_ptr_){
-                std::allocator_traits<Allocator>::destroy(alloc_, first.ptr_);
+                std::allocator_traits<Allocator>::destroy(alloc_, const_cast<T*>(first.ptr_));
                 ++first; 
             }        
-            return {last.bucket_ptr_, last.ptr_};
-
+            return {last.bucket_ptr_, const_cast<T*>(last.ptr_)};
         }
 
         //the worst case
 
         //Because, const_iterator::operator* returns const T& than we need to get a non const iterator to first (to avoid copy instead move)
-        iterator first_it(first.bucket_ptr_, first.ptr_);
-        iterator second_it(last.bucket_ptr_, last.ptr_);
+        iterator first_it(first.bucket_ptr_, const_cast<T*>(first.ptr_));
+        iterator second_it(last.bucket_ptr_, const_cast<T*>(last.ptr_));
 
         if (last_ - last < first - first_){
         // move delet-elements to end side
@@ -632,7 +636,7 @@ public:
             --size_;
         }
 
-        return {last.bucket_ptr_, last.ptr_};
+        return {last.bucket_ptr_, const_cast<T*>(last.ptr_)};
     }
 
 
