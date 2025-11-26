@@ -379,13 +379,13 @@ public:
     const_iterator cend() const noexcept {return end();}
 
 
-    reverse_iterator rbegin() {return std::make_reverse_iterator<iterator>(end()-1);}
-    const_reverse_iterator rbegin() const {return std::make_reverse_iterator<const_iterator>(cend()-1);}
+    reverse_iterator rbegin() {return std::make_reverse_iterator<iterator>(end());}
+    const_reverse_iterator rbegin() const {return std::make_reverse_iterator<const_iterator>(cend());}
     const_reverse_iterator crbegin() const noexcept {return rbegin();}
     
 
-    reverse_iterator rend() {return std::make_reverse_iterator<iterator>(begin()-1);}
-    const_reverse_iterator rend() const {return std::make_reverse_iterator<const_iterator>(cbegin()-1);}
+    reverse_iterator rend() {return std::make_reverse_iterator<iterator>(begin());}
+    const_reverse_iterator rend() const {return std::make_reverse_iterator<const_iterator>(cbegin());}
     const_reverse_iterator crend() const noexcept {return rend();}
 
 
