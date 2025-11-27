@@ -745,7 +745,69 @@ public:
     // iterator insert(const_iterator pos, T&& value){}
     
 
-    //iterator insert(const_iterator pos, size_type count, const T& value){}
+    iterator insert(const_iterator pos, size_type count, const T& value){
+        if (count < 1) {return {pos.bucket_ptr_, pos.ptr_};}
+
+        if (buckets_ptr_ == nullptr){
+            size_t count_of_needed_buckets;
+            count_of_needed_buckets = (count % BucketSize == 0) ? count/BucketSize : count/BucketSize + 1;
+
+            buckets_ptr_ = std::allocator_traits<AllocatorPtrOnBucket>::allocate(alloc_ptr_on_bucket_, count_of_needed_buckets);
+            size_t i = 0;
+            try{ // strong exception guarantee
+                for (;i < count_of_needed_buckets; ++i)
+                    buckets_ptr_[i] = std::allocator_traits<Allocator>::allocate(alloc_, BucketSize);
+            }
+            catch(...){
+                while (i > 0){
+                    --i;
+                    std::allocator_traits<Allocator>::deallocate(alloc_, buckets_ptr_[i], BucketSize);
+                }
+                std::allocator_traits<AllocatorPtrOnBucket>::deallocate(alloc_ptr_on_bucket_, buckets_ptr_, 1);
+                buckets_ptr_ = nullptr;
+                throw; 
+            }
+
+            i = 0;
+            size_t j = 0;
+            size_t successful_constructed_count = 0;
+            try{ // strong exception guarantee
+                for(;i < count_of_needed_buckets; ++i){
+                    for(j = 0; (j < BucketSize) && (successful_constructed_count < count); ++j, ++successful_constructed_count){
+                        std::allocator_traits<Allocator>::construct(alloc_, buckets_ptr_[i] + j, value);
+                    }
+                }
+            }
+            catch(...){
+                i = 0;
+                for(;i < count_of_needed_buckets; ++i){
+                    for(j = 0; (j < BucketSize) && (successful_constructed_count > 0); ++j, --successful_constructed_count){
+                        std::allocator_traits<Allocator>::destroy(alloc_, buckets_ptr_[i] + j);
+                    }
+                    std::allocator_traits<Allocator>::deallocate(alloc_, buckets_ptr_[i], BucketSize);
+                }
+                std::allocator_traits<AllocatorPtrOnBucket>::deallocate(alloc_ptr_on_bucket_, buckets_ptr_, 1);
+                buckets_ptr_ = nullptr;
+                throw; 
+            }
+        
+            first_allocated_bucket_ptr_ = buckets_ptr_;
+            last_allocated_bucket_ptr_ = buckets_ptr_ + count_of_needed_buckets - 1;
+
+            first_.bucket_ptr_ = first_allocated_bucket_ptr_;
+            first_.ptr_ = *first_.bucket_ptr_;
+            
+            last_.bucket_ptr_ = last_allocated_bucket_ptr_;
+            last_.ptr_ = *last_allocated_bucket_ptr_ + j;
+
+            buckets_capacity_ = count_of_needed_buckets;
+            size_ += count;
+
+            return {buckets_ptr_, *buckets_ptr_};
+        }
+        return {pos.bucket_ptr_, pos.ptr_};
+
+    }
 
     
     /*
