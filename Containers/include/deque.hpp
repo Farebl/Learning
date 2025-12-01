@@ -672,6 +672,12 @@ public:
             m_first.m_ptr = m_last.m_ptr = *m_last_allocated_bucket_ptr; 
             m_size = 1;
             m_buckets_capacity = 1;
+            return;
+        }
+        else if (m_size == 0){
+            std::allocator_traits<Allocator>::construct(m_alloc, m_last.m_ptr, value);
+            ++m_size;
+            return;
         }
         else if ((m_last.m_ptr - *m_last.m_bucket_ptr) < static_cast<long int>(BucketSize - 1)){
             std::allocator_traits<Allocator>::construct(m_alloc, m_last.m_ptr + 1, value);
@@ -681,6 +687,7 @@ public:
             satisfied guarantees that (++m_last) will not require a transition to the next bucket
         */
             ++m_size;
+            return;
         }
         else {
             if ((m_last.m_bucket_ptr - m_buckets_ptr) < static_cast<long int>(m_buckets_capacity - 1)){
@@ -741,6 +748,7 @@ public:
                 m_buckets_ptr = new_buckets_ptr;
                 m_buckets_capacity = new_buckets_capacity;
                 ++m_size;
+                return;
             }    
         }
     }
