@@ -25,23 +25,23 @@ private:
 
     private:
         friend class deque<T, Allocator, BucketSize>;
-        T** bucket_ptr_;
-        pointer ptr_;
-        base_iterator(T** bucket_ptr, pointer ptr): bucket_ptr_(bucket_ptr), ptr_(ptr){}
+        T** m_bucket_ptr;
+        pointer m_ptr;
+        base_iterator(T** bucket_ptr, pointer ptr): m_bucket_ptr(bucket_ptr), m_ptr(ptr){}
     public:
 
-        reference operator*() const {return *ptr_; }
+        reference operator*() const {return *m_ptr; }
 
-	    pointer operator->() const {return ptr_;}
+	    pointer operator->() const {return m_ptr;}
 
         base_iterator& operator++(){
-            if (bucket_ptr_ != nullptr){
-                if (const_cast<T*>(ptr_) - *bucket_ptr_ < static_cast<difference_type>(BucketSize-1)){
-                   ++ptr_;
+            if (m_bucket_ptr != nullptr){
+                if (const_cast<T*>(m_ptr) - *m_bucket_ptr < static_cast<difference_type>(BucketSize-1)){
+                   ++m_ptr;
                 }
                 else{
-                    ++bucket_ptr_;
-                    ptr_ = *bucket_ptr_; 
+                    ++m_bucket_ptr;
+                    m_ptr = *m_bucket_ptr; 
                 }
             }
             return *this;
@@ -55,13 +55,13 @@ private:
 
 
         base_iterator& operator--(){
-            if (bucket_ptr_ != nullptr){
-                if (ptr_ != *bucket_ptr_){
-                    --ptr_;
+            if (m_bucket_ptr != nullptr){
+                if (m_ptr != *m_bucket_ptr){
+                    --m_ptr;
                 }
                 else{
-                    --bucket_ptr_;
-                    ptr_ = *bucket_ptr_ + (BucketSize - 1);
+                    --m_bucket_ptr;
+                    m_ptr = *m_bucket_ptr + (BucketSize - 1);
                 }
             }
             return *this;
@@ -76,18 +76,18 @@ private:
         
         base_iterator& operator+=(difference_type value) & {
             if (value < 0) return *this -= value;
-            if (bucket_ptr_ != nullptr){
-                difference_type result_index = (const_cast<T*>(ptr_) - *bucket_ptr_) + value % BucketSize;
+            if (m_bucket_ptr != nullptr){
+                difference_type result_index = (const_cast<T*>(m_ptr) - *m_bucket_ptr) + value % BucketSize;
                 
                 if (value >= static_cast<difference_type>(BucketSize))
-                    bucket_ptr_ += value / BucketSize;
+                    m_bucket_ptr += value / BucketSize;
                 
                 if (result_index < static_cast<difference_type>(BucketSize)){
-                    ptr_ = *bucket_ptr_ + result_index;
+                    m_ptr = *m_bucket_ptr + result_index;
                 }
                 else{
-                    ++bucket_ptr_;
-                    ptr_ = *bucket_ptr_ + (result_index - BucketSize);
+                    ++m_bucket_ptr;
+                    m_ptr = *m_bucket_ptr + (result_index - BucketSize);
                 } 
             }
             return *this;
@@ -95,18 +95,18 @@ private:
 
         base_iterator& operator-=(difference_type value) & {
             if (value < 0) {return *this += value;}
-            if (bucket_ptr_ != nullptr){
-                difference_type result_index_in_bucket = (const_cast<T*>(ptr_) - *bucket_ptr_) - value % BucketSize;
+            if (m_bucket_ptr != nullptr){
+                difference_type result_index_in_bucket = (const_cast<T*>(m_ptr) - *m_bucket_ptr) - value % BucketSize;
                 
                 if (value > static_cast<difference_type>(BucketSize))
-                    bucket_ptr_ -= value / BucketSize;
+                    m_bucket_ptr -= value / BucketSize;
             
                 if (result_index_in_bucket > -1){
-                    ptr_ = *bucket_ptr_ + result_index_in_bucket;
+                    m_ptr = *m_bucket_ptr + result_index_in_bucket;
                 } 
                 else{
-                    --bucket_ptr_;
-                    ptr_ = *bucket_ptr_ + (BucketSize + result_index_in_bucket);
+                    --m_bucket_ptr;
+                    m_ptr = *m_bucket_ptr + (BucketSize + result_index_in_bucket);
                 } 
             }
             return *this;
@@ -143,25 +143,25 @@ private:
 
         template<bool OtherIsConst>
         difference_type operator-(const base_iterator<OtherIsConst>& other){
-            if (bucket_ptr_ == nullptr || other.bucket_ptr_ == nullptr){
-                return bucket_ptr_ - other.bucket_ptr_;
+            if (m_bucket_ptr == nullptr || other.m_bucket_ptr == nullptr){
+                return m_bucket_ptr - other.m_bucket_ptr;
             }
 
-            if(bucket_ptr_ == other.bucket_ptr_){
-                return const_cast<T*>(ptr_) - const_cast<T*>(other.ptr_); 
+            if(m_bucket_ptr == other.m_bucket_ptr){
+                return const_cast<T*>(m_ptr) - const_cast<T*>(other.m_ptr); 
             }
-            else if(bucket_ptr_ > other.bucket_ptr_){
+            else if(m_bucket_ptr > other.m_bucket_ptr){
                 return (
-                    (((bucket_ptr_ - other.bucket_ptr_) -1) * BucketSize) 
+                    (((m_bucket_ptr - other.m_bucket_ptr) -1) * BucketSize) 
                     + 
-                    (const_cast<T*>(ptr_) - *bucket_ptr_) + ((*other.bucket_ptr_ + BucketSize) - const_cast<T*>(other.ptr_))
+                    (const_cast<T*>(m_ptr) - *m_bucket_ptr) + ((*other.m_bucket_ptr + BucketSize) - const_cast<T*>(other.m_ptr))
                 );
             }
             else{
                 return( 
-                    (((other.bucket_ptr_ - bucket_ptr_) -1) * BucketSize)
+                    (((other.m_bucket_ptr - m_bucket_ptr) -1) * BucketSize)
                     + 
-                    (const_cast<T*>(other.ptr_) - *other.bucket_ptr_) + ((*bucket_ptr_ + BucketSize) - const_cast<T*>(ptr_))
+                    (const_cast<T*>(other.m_ptr) - *other.m_bucket_ptr) + ((*m_bucket_ptr + BucketSize) - const_cast<T*>(m_ptr))
                 ); 
             }
         }
@@ -172,16 +172,16 @@ private:
 
         template<bool OtherIsConst>
         bool operator==(const base_iterator<OtherIsConst>& other){
-            return bucket_ptr_ == other.bucket_ptr_ && ptr_ == other.ptr_; 
+            return m_bucket_ptr == other.m_bucket_ptr && m_ptr == other.m_ptr; 
         }
         template<bool OtherIsConst>
         bool operator!=(const base_iterator<OtherIsConst>& other){
-            return !(ptr_ == other.ptr_);
+            return !(m_ptr == other.m_ptr);
         }
 
         template<bool OtherIsConst>
         bool operator<(const base_iterator<OtherIsConst>& other){
-            return bucket_ptr_ < other.bucket_ptr_ ? true : (bucket_ptr_ == other.bucket_ptr_ && ptr_ < other.ptr_) ? true : false; 
+            return m_bucket_ptr < other.m_bucket_ptr ? true : (m_bucket_ptr == other.m_bucket_ptr && m_ptr < other.m_ptr) ? true : false; 
         }
         
         template<bool OtherIsConst>
@@ -193,7 +193,7 @@ private:
         template<bool OtherIsConst>
         bool operator<=(const base_iterator<OtherIsConst>& other){    return !(*this > other); }
 
-        operator base_iterator<true>(){return {bucket_ptr_, const_cast<const T*>(ptr_)};}
+        operator base_iterator<true>(){return {m_bucket_ptr, const_cast<const T*>(m_ptr)};}
     };
 public: 
     using value_type             = T;
@@ -213,65 +213,63 @@ public:
     using const_reverse_iterator = std::reverse_iterator<const_iterator>;
 
 private:
-    T** buckets_ptr_; 
-    T** first_allocated_bucket_ptr_;
-    T** last_allocated_bucket_ptr_;
-    base_iterator<false> first_;
-    base_iterator<false> last_;
-    size_type size_;
-    size_type buckets_capacity_;
-    Allocator alloc_;
+    T** m_buckets_ptr; 
+    T** m_first_allocated_bucket_ptr;
+    T** m_last_allocated_bucket_ptr;
+    base_iterator<false> m_first;
+    base_iterator<false> m_last;
+    size_type m_size;
+    size_type m_buckets_capacity;
+    Allocator m_alloc;
     using AllocatorPtrOnBucket = typename std::allocator_traits<Allocator>::template rebind_alloc<T*>;
-    AllocatorPtrOnBucket alloc_ptr_on_bucket_;
+    AllocatorPtrOnBucket m_alloc_ptr_on_bucket_;
 
 
     void center_the_iterators_firs_and_last_(){
     /*
-        Moving iterators (first_ and last_) to the begin of the middle allocated bucket of the deque,
+        Moving iterators (m_first and m_last) to the begin of the middle allocated bucket of the deque,
         to optimize subsequent operations of inserting elements in the begin or end.
     */
         size_t index_of_middle_allocated_bucket = 
-            (first_allocated_bucket_ptr_ - buckets_ptr_)
+            (m_first_allocated_bucket_ptr - m_buckets_ptr)
                 +
-            ((last_allocated_bucket_ptr_ - first_allocated_bucket_ptr_) / 2);
+            ((m_last_allocated_bucket_ptr - m_first_allocated_bucket_ptr) / 2);
 
-        last_.bucket_ptr_ = buckets_ptr_ + index_of_middle_allocated_bucket;
-        last_.ptr_ = *last_.bucket_ptr_;
-        first_ = last_ + 1;
+        m_last.m_bucket_ptr = m_buckets_ptr + index_of_middle_allocated_bucket;
+        m_last.m_ptr = *m_last.m_bucket_ptr;
+        m_first = m_last + 1;
     /*
         Now, if you insert an element at the end, the new element will be at position 
-        last_+1, after which the iterator last_ is shuffled forward by 1 position. 
-        Due to this, the iterators first_ and last_ point to position of new added element.                  
+        last_+1, after which the iterator m_last is shuffled forward by 1 position. 
+        Due to this, the iterators m_first and m_last point to position of new added element.                  
     */ 
     }
 
 
 public:
 
-
-
     explicit deque(): 
-        buckets_ptr_(nullptr), 
-        first_allocated_bucket_ptr_(nullptr),
-        last_allocated_bucket_ptr_(nullptr),
-        first_(nullptr, nullptr), 
-        last_(nullptr, nullptr),
-        size_(0), 
-        buckets_capacity_(0), 
-        alloc_(Allocator()),
-        alloc_ptr_on_bucket_(alloc_)
+        m_buckets_ptr(nullptr), 
+        m_first_allocated_bucket_ptr(nullptr),
+        m_last_allocated_bucket_ptr(nullptr),
+        m_first(nullptr, nullptr), 
+        m_last(nullptr, nullptr),
+        m_size(0), 
+        m_buckets_capacity(0), 
+        m_alloc(Allocator()),
+        m_alloc_ptr_on_bucket_(m_alloc)
     {}
 
     explicit deque(const Allocator& alloc): 
-        buckets_ptr_(nullptr), 
-        first_allocated_bucket_ptr_(nullptr),
-        last_allocated_bucket_ptr_(nullptr),
-        first_(nullptr, nullptr), 
-        last_(nullptr, nullptr), 
-        size_(0), 
-        buckets_capacity_(0), 
-        alloc_(alloc),
-        alloc_ptr_on_bucket_(alloc_)
+        m_buckets_ptr(nullptr), 
+        m_first_allocated_bucket_ptr(nullptr),
+        m_last_allocated_bucket_ptr(nullptr),
+        m_first(nullptr, nullptr), 
+        m_last(nullptr, nullptr), 
+        m_size(0), 
+        m_buckets_capacity(0), 
+        m_alloc(alloc),
+        m_alloc_ptr_on_bucket_(m_alloc)
     {}
     
     //explicit deque(size_type count, const Allocator& alloc){}
@@ -337,30 +335,30 @@ public:
         return std::move(*((first_ + pos).ptr_));
     }
     
-    reference front() {return *first_;}
-    const_reference front() const {return *first_;}
+    reference front() {return *m_first;}
+    const_reference front() const {return *m_first;}
 
-    reference back() {return *last_;}
-    const_reference back() const {return *last_;}
+    reference back() {return *m_last;}
+    const_reference back() const {return *m_last;}
 
 
 
-    iterator begin() {return {first_};}
-    const_iterator begin() const {return {first_.bucket_ptr_, const_cast<const T*>(first_.ptr_)};}
+    iterator begin() {return {m_first};}
+    const_iterator begin() const {return {m_first.m_bucket_ptr, const_cast<const T*>(m_first.m_ptr)};}
     const_iterator cbegin() const noexcept {return begin();}
 
-    //last_ pointing on the last element (not to the next position after last element, but straight at last element)
+    //m_last pointing on the last element (not to the next position after last element, but straight at last element)
     iterator end() {
-        if (buckets_ptr_ == nullptr){
+        if (m_buckets_ptr == nullptr){
             return {nullptr, nullptr};
         }
-        return {last_ + 1 };
+        return {m_last + 1 };
     }
     const_iterator end() const {
-        if (buckets_ptr_ == nullptr){
+        if (m_buckets_ptr == nullptr){
             return {nullptr, nullptr};
         }
-        return {last_ + 1};
+        return {m_last + 1};
     } 
     const_iterator cend() const noexcept {return end();}
 
@@ -376,91 +374,91 @@ public:
 
 
 
-    bool empty() const {return !size_;}
+    bool empty() const {return !m_size;}
     
-    size_type size() const {return size_;}
+    size_type size() const {return m_size;}
     
     long max_size() const {return std::numeric_limits<difference_type>::max();}
 
     void shrink_to_fit(){
-        if (buckets_ptr_ == nullptr){ return; }
+        if (m_buckets_ptr == nullptr){ return; }
          
-        if (size_ == 0){
-            T** end_pos = last_allocated_bucket_ptr_ + 1;
-            while(first_allocated_bucket_ptr_ != end_pos){ 
-                std::allocator_traits<Allocator>::deallocate(alloc_, *first_allocated_bucket_ptr_, BucketSize);
-                ++first_allocated_bucket_ptr_;
+        if (m_size == 0){
+            T** end_pos = m_last_allocated_bucket_ptr + 1;
+            while(m_first_allocated_bucket_ptr != end_pos){ 
+                std::allocator_traits<Allocator>::deallocate(m_alloc, *m_first_allocated_bucket_ptr, BucketSize);
+                ++m_first_allocated_bucket_ptr;
             }
-            std::allocator_traits<AllocatorPtrOnBucket>::deallocate(alloc_ptr_on_bucket_, buckets_ptr_, buckets_capacity_);
-            buckets_ptr_ = nullptr;
-            first_allocated_bucket_ptr_ = last_allocated_bucket_ptr_ = nullptr;
-            first_.bucket_ptr_= last_.bucket_ptr_ = nullptr;
-            first_.ptr_ = last_.ptr_ = nullptr;
-            buckets_capacity_ = 0;
+            std::allocator_traits<AllocatorPtrOnBucket>::deallocate(m_alloc_ptr_on_bucket_, m_buckets_ptr, m_buckets_capacity);
+            m_buckets_ptr = nullptr;
+            m_first_allocated_bucket_ptr = m_last_allocated_bucket_ptr = nullptr;
+            m_first.m_bucket_ptr= m_last.m_bucket_ptr = nullptr;
+            m_first.m_ptr = m_last.m_ptr = nullptr;
+            m_buckets_capacity = 0;
             return;
         }
        
         //deque is not empty:
         
         difference_type new_buckets_capacity = 
-            (last_.bucket_ptr_ - first_.bucket_ptr_)
+            (m_last.m_bucket_ptr - m_first.m_bucket_ptr)
             +
-            (((last_.ptr_ - *last_.bucket_ptr_) < (first_.ptr_ - *first_.bucket_ptr_)) ? 0 : 1);
+            (((m_last.m_ptr - *m_last.m_bucket_ptr) < (m_first.m_ptr - *m_first.m_bucket_ptr)) ? 0 : 1);
         
-        T** new_buckets_ptr = std::allocator_traits<AllocatorPtrOnBucket>::allocate(alloc_ptr_on_bucket_, new_buckets_capacity);
+        T** new_buckets_ptr = std::allocator_traits<AllocatorPtrOnBucket>::allocate(m_alloc_ptr_on_bucket_, new_buckets_capacity);
         decltype(new_buckets_capacity) success_allocated_count = 0;
         try{
             for (; success_allocated_count < new_buckets_capacity; ++success_allocated_count){
-                new_buckets_ptr[success_allocated_count] = std::allocator_traits<Allocator>::allocate(alloc_, BucketSize);
+                new_buckets_ptr[success_allocated_count] = std::allocator_traits<Allocator>::allocate(m_alloc, BucketSize);
             }
         }
         catch(...){  
             for(decltype(success_allocated_count) i = 0; i < success_allocated_count; ++i){
-                std::allocator_traits<Allocator>::deallocate(alloc_, new_buckets_ptr[i], BucketSize);
+                std::allocator_traits<Allocator>::deallocate(m_alloc, new_buckets_ptr[i], BucketSize);
             }
-            std::allocator_traits<AllocatorPtrOnBucket>::deallocate(alloc_ptr_on_bucket_, new_buckets_ptr, new_buckets_capacity);
+            std::allocator_traits<AllocatorPtrOnBucket>::deallocate(m_alloc_ptr_on_bucket_, new_buckets_ptr, new_buckets_capacity);
             throw;
         }
 
-        iterator current_deque_it = first_;
+        iterator current_deque_it = m_first;
         iterator new_deque_it(new_buckets_ptr, *new_buckets_ptr);
         iterator end_pos = end();
         try{
             while(current_deque_it != end_pos){
-                std::allocator_traits<Allocator>::construct(alloc_, new_deque_it.ptr_, std::move_if_noexcept(*current_deque_it));
+                std::allocator_traits<Allocator>::construct(m_alloc, new_deque_it.m_ptr, std::move_if_noexcept(*current_deque_it));
             }
         }
         catch(...){
             --new_deque_it;
             end_pos = --iterator(new_buckets_ptr, *new_buckets_ptr);
             while (new_deque_it != end_pos){
-                std::allocator_traits<Allocator>::destroy(alloc_, new_deque_it.ptr_);
+                std::allocator_traits<Allocator>::destroy(m_alloc, new_deque_it.m_ptr);
                 --new_deque_it;
             }
             for(decltype(success_allocated_count) i = 0; i < success_allocated_count; ++i){
-                std::allocator_traits<Allocator>::deallocate(alloc_, new_buckets_ptr[i], BucketSize);
+                std::allocator_traits<Allocator>::deallocate(m_alloc, new_buckets_ptr[i], BucketSize);
             }
-            std::allocator_traits<AllocatorPtrOnBucket>::deallocate(alloc_ptr_on_bucket_, new_buckets_ptr, new_buckets_capacity);
+            std::allocator_traits<AllocatorPtrOnBucket>::deallocate(m_alloc_ptr_on_bucket_, new_buckets_ptr, new_buckets_capacity);
             throw;
         }
 
         clear();
         
-        T** end_bucket_pos = last_allocated_bucket_ptr_ + 1;
-        while(first_allocated_bucket_ptr_ != end_bucket_pos){
-            std::allocator_traits<Allocator>::deallocate(alloc_, *first_allocated_bucket_ptr_, BucketSize);
+        T** end_bucket_pos = m_last_allocated_bucket_ptr + 1;
+        while(m_first_allocated_bucket_ptr != end_bucket_pos){
+            std::allocator_traits<Allocator>::deallocate(m_alloc, *m_first_allocated_bucket_ptr, BucketSize);
         }
-        std::allocator_traits<AllocatorPtrOnBucket>::deallocate(alloc_ptr_on_bucket_, buckets_ptr_, buckets_capacity_);
+        std::allocator_traits<AllocatorPtrOnBucket>::deallocate(m_alloc_ptr_on_bucket_, m_buckets_ptr, m_buckets_capacity);
         
-        buckets_ptr_ = new_buckets_ptr;
-        buckets_capacity_ = new_buckets_capacity;
+        m_buckets_ptr = new_buckets_ptr;
+        m_buckets_capacity = new_buckets_capacity;
 
-        first_allocated_bucket_ptr_ = new_buckets_ptr;
-        last_allocated_bucket_ptr_  = new_buckets_ptr + new_buckets_capacity - 1;
+        m_first_allocated_bucket_ptr = new_buckets_ptr;
+        m_last_allocated_bucket_ptr  = new_buckets_ptr + new_buckets_capacity - 1;
 
-        first_.bucket_ptr_ = first_allocated_bucket_ptr_;
-        first_.ptr_ = *first_allocated_bucket_ptr_;
-        last_ = new_deque_it;
+        m_first.m_bucket_ptr = m_first_allocated_bucket_ptr;
+        m_first.m_ptr = *m_first_allocated_bucket_ptr;
+        m_last = new_deque_it;
     }
 
 
@@ -496,122 +494,122 @@ public:
 
 
     iterator erase(const_iterator first, const_iterator last){
-        if (size_ == 0) {return end();}
+        if (m_size == 0) {return end();}
 
         if (first == last) {    
-            return {last.bucket_ptr_, const_cast<T*>(last.ptr_)};
+            return {last.m_bucket_ptr, const_cast<T*>(last.m_ptr)};
         } 
         /*
             like in gcc & clang here is no checking (first > last);
             it means that if (first > last) -> UB
         */
-        if (first.ptr_ == first_.ptr_){
-            if(last.ptr_ == cend().ptr_){ 
-                while(first_ != last){
-                    std::allocator_traits<Allocator>::destroy(alloc_, first_.ptr_);
-                    ++first_;
+        if (first == m_first){
+            if(last == cend()){ 
+                while(m_first != last){
+                    std::allocator_traits<Allocator>::destroy(m_alloc, m_first.m_ptr);
+                    ++m_first;
                 }
 
                 // for that future inserts are inside the middle of the deck:
-                first_.bucket_ptr_ = last_.bucket_ptr_ = buckets_ptr_+ (buckets_capacity_ / 2);
-                first_.ptr_ = last_.ptr_ = *last_.bucket_ptr_;
-                size_ = 0;
+                m_first.m_bucket_ptr = m_last.m_bucket_ptr = m_buckets_ptr + (m_buckets_capacity / 2);
+                m_first.m_ptr = m_last.m_ptr = *m_last.m_bucket_ptr;
+                m_size = 0;
             }
             else{
-                while(first_ != last){
-                    std::allocator_traits<Allocator>::destroy(alloc_, first_.ptr_);
-                    ++first_;
-                    --size_;
+                while(m_first != last){
+                    std::allocator_traits<Allocator>::destroy(m_alloc, m_first.m_ptr);
+                    ++m_first;
+                    --m_size;
                 }
             } 
-            return {last.bucket_ptr_, const_cast<T*>(last.ptr_)}; 
+            return {last.m_bucket_ptr, const_cast<T*>(last.m_ptr)}; 
         }
-        else if (last.ptr_ == cend().ptr_){
+        else if (last == cend()){
             const_iterator end_pos = first - 1;
-            while(last_ != end_pos){
-                std::allocator_traits<Allocator>::destroy(alloc_, last_.ptr_);
-                --last_;
-                --size_;
+            while(m_last != end_pos){
+                std::allocator_traits<Allocator>::destroy(m_alloc, m_last.m_ptr);
+                --m_last;
+                --m_size;
             }
-            return {last.bucket_ptr_, const_cast<T*>(last.ptr_)};
+            return {last.m_bucket_ptr, const_cast<T*>(last.m_ptr)};
         }
 
-        else if (first.ptr_ == *first.bucket_ptr_ && last.ptr_ == *last.bucket_ptr_){
+        else if (first.m_ptr == *first.m_bucket_ptr && last.m_ptr == *last.m_bucket_ptr){
 
             //we move the delete bucket to the deque boundary to avoid unnecessary element movements
             //we check in which of halves is delete bucket to move him to the nearest border to reduce count of swaps
-            difference_type count_delete_buckets = last.bucket_ptr_ - first.bucket_ptr_;
-            if ((last_.bucket_ptr_ - last.bucket_ptr_  + 1) <= (first.bucket_ptr_ - first_.bucket_ptr_)){
+            difference_type count_delete_buckets = last.m_bucket_ptr - first.m_bucket_ptr;
+            if ((m_last.m_bucket_ptr - last.m_bucket_ptr  + 1) <= (first.m_bucket_ptr - m_first.m_bucket_ptr)){
                 //move to end
 
-                difference_type old_distance_from_last_to_end = last_.bucket_ptr_ - last.bucket_ptr_;
+                difference_type old_distance_from_last_to_end = m_last.m_bucket_ptr - last.m_bucket_ptr;
                 /*
                 difference_type old_distance_from_last_to_end:
 
-                The point is that after the delete_buckets move is complete, the last.bucket_ptr_ pointer, which has type (T**),
-                continues to point to its bucket_array position, but after moving the pointers on buckets, the last.bucket_ptr_ 
+                The point is that after the delete_buckets move is complete, the last.m_bucket_ptr pointer, which has type (T**),
+                continues to point to its bucket_array position, but after moving the pointers on buckets, the last.m_bucket_ptr 
                 pointer becomes invalid;
                 So to keep the iterator to the real first non-deletable element, we keep the distance from its bucket to the 
                 last bucket.
-                IMPORTANT: the last.ptr_ pointer remains valid after all bucket moves, since we don't move the real buckets 
+                IMPORTANT: the last.m_ptr pointer remains valid after all bucket moves, since we don't move the real buckets 
                 themselves, but only the pointers to them.            
             */
                 // As long as the loop condition is true, we can completely move the block of pointers_to_delete_buckets to the size of this block.
-                while (last_.bucket_ptr_ - (first.bucket_ptr_ + count_delete_buckets - 1) >= count_delete_buckets){
+                while (m_last.m_bucket_ptr - (first.m_bucket_ptr + count_delete_buckets - 1) >= count_delete_buckets){
                     for (difference_type i = count_delete_buckets - 1; i >= 0; --i){
-                        std::swap(first.bucket_ptr_[i], first.bucket_ptr_[i+count_delete_buckets]);
+                        std::swap(first.m_bucket_ptr[i], first.m_bucket_ptr[i+count_delete_buckets]);
                     }
-                    first.bucket_ptr_ +=count_delete_buckets; 
+                    first.m_bucket_ptr +=count_delete_buckets; 
                 }
                 // now the distance between the last_bucket of the deck and the bucket block of pointers_to_delete_buckets is less than the size of the bucket block
-                difference_type remainder_size = last_.bucket_ptr_ - first.bucket_ptr_ + count_delete_buckets - 1;
+                difference_type remainder_size = m_last.m_bucket_ptr - first.m_bucket_ptr + count_delete_buckets - 1;
 
                 for (difference_type i = 0; i < remainder_size; ++i){
-                    std::swap(first.bucket_ptr_[i], first.bucket_ptr_[i+count_delete_buckets]);
+                    std::swap(first.m_bucket_ptr[i], first.m_bucket_ptr[i+count_delete_buckets]);
                 }  
-                first.bucket_ptr_ += remainder_size; // first.bucket_ptr_ is pointing on first trash_bucket
-                first.ptr_ = *first.bucket_ptr_; // updating ptr_
-                last_.bucket_ptr_ = first.bucket_ptr_ - 1;
+                first.m_bucket_ptr += remainder_size; // first.m_bucket_ptr is pointing on first trash_bucket
+                first.m_ptr = *first.m_bucket_ptr; // updating m_ptr
+                m_last.m_bucket_ptr = first.m_bucket_ptr - 1;
 
-                T** end_pos = first.bucket_ptr_ + count_delete_buckets;
-                while(first.bucket_ptr_ != end_pos){
-                    std::allocator_traits<Allocator>::destroy(alloc_, const_cast<T*>(first.ptr_));
+                T** end_pos = first.m_bucket_ptr + count_delete_buckets;
+                while(first.m_bucket_ptr != end_pos){
+                    std::allocator_traits<Allocator>::destroy(m_alloc, const_cast<T*>(first.m_ptr));
                     ++first; 
                 }       
 
-                return {last_.bucket_ptr_ - old_distance_from_last_to_end, const_cast<T*>(last.ptr_)};
+                return {m_last.m_bucket_ptr - old_distance_from_last_to_end, const_cast<T*>(last.m_ptr)};
             }
 
             // move to begin
-            while (first.bucket_ptr_ - first_.bucket_ptr_ >= count_delete_buckets){
+            while (first.m_bucket_ptr - m_first.m_bucket_ptr >= count_delete_buckets){
                 for (difference_type i = count_delete_buckets - 1; i >= 0; --i){
-                    std::swap(first.bucket_ptr_[i], first.bucket_ptr_[i - count_delete_buckets]);
+                    std::swap(first.m_bucket_ptr[i], first.m_bucket_ptr[i - count_delete_buckets]);
                 }
-                first.bucket_ptr_ -= count_delete_buckets; 
+                first.m_bucket_ptr -= count_delete_buckets; 
             }
-            difference_type reminder_size = first.bucket_ptr_ - first_.bucket_ptr_;
+            difference_type reminder_size = first.m_bucket_ptr - m_first.m_bucket_ptr;
 
             for (difference_type i = 0; i < reminder_size; ++i){
-                std::swap(first.bucket_ptr_[-i + count_delete_buckets - 1], first.bucket_ptr_[-i-1]);
+                std::swap(first.m_bucket_ptr[-i + count_delete_buckets - 1], first.m_bucket_ptr[-i-1]);
             } 
 
-            first.bucket_ptr_ -=  reminder_size; // first.bucket_ptr_ is pointing on first trach_bucket
-            first_.bucket_ptr_ = first.bucket_ptr_ + count_delete_buckets; 
+            first.m_bucket_ptr -=  reminder_size; // first.m_bucket_ptr is pointing on first trach_bucket
+            m_first.m_bucket_ptr = first.m_bucket_ptr + count_delete_buckets; 
 
-            while(first.bucket_ptr_ != first_.bucket_ptr_){
-                std::allocator_traits<Allocator>::destroy(alloc_, const_cast<T*>(first.ptr_));
+            while(first.m_bucket_ptr != m_first.m_bucket_ptr){
+                std::allocator_traits<Allocator>::destroy(m_alloc, const_cast<T*>(first.m_ptr));
                 ++first; 
             }        
-            return {last.bucket_ptr_, const_cast<T*>(last.ptr_)};
+            return {last.m_bucket_ptr, const_cast<T*>(last.m_ptr)};
         }
 
         //the worst case
 
         //Because, const_iterator::operator* returns const T& than we need to get a non const iterator to first (to avoid copy instead move)
-        iterator first_it(first.bucket_ptr_, const_cast<T*>(first.ptr_));
-        iterator second_it(last.bucket_ptr_, const_cast<T*>(last.ptr_));
+        iterator first_it(first.m_bucket_ptr, const_cast<T*>(first.m_ptr));
+        iterator second_it(last.m_bucket_ptr, const_cast<T*>(last.m_ptr));
 
-        if (last_ - last < first - first_){
+        if (m_last - last < first - m_first){
         // move delet-elements to end side
             
             iterator return_pos = first_it;
@@ -623,10 +621,10 @@ public:
             } 
             // there, first_it points on the first trash-element;
             --first_it; // there, first_it points on the new last_;
-            while(last_ != first_it){
-                std::allocator_traits<Allocator>::destroy(alloc_, last_.ptr_);
-                --last_;
-                --size_;
+            while(m_last != first_it){
+                std::allocator_traits<Allocator>::destroy(m_alloc, m_last.m_ptr);
+                --m_last;
+                --m_size;
             }
             return return_pos;
         }
@@ -642,108 +640,108 @@ public:
         }
         // second_it points on the last trash-elemnt;
         ++second_it; // second_it points on the new first_;
-        while(first_ != second_it){
-            std::allocator_traits<Allocator>::destroy(alloc_, first_.ptr_);
-            ++first_;
-            --size_;
+        while(m_first != second_it){
+            std::allocator_traits<Allocator>::destroy(m_alloc, m_first.m_ptr);
+            ++m_first;
+            --m_size;
         }
 
-        return {last.bucket_ptr_, const_cast<T*>(last.ptr_)};
+        return {last.m_bucket_ptr, const_cast<T*>(last.m_ptr)};
     }
 
 
     void push_back( const T& value ){ 
-        if (!buckets_ptr_){
-            buckets_ptr_ = std::allocator_traits<AllocatorPtrOnBucket>::allocate(alloc_ptr_on_bucket_, 1);
+        if (!m_buckets_ptr){
+            m_buckets_ptr = std::allocator_traits<AllocatorPtrOnBucket>::allocate(m_alloc_ptr_on_bucket_, 1);
             try{
-                *buckets_ptr_ = std::allocator_traits<Allocator>::allocate(alloc_, BucketSize);
+                *m_buckets_ptr = std::allocator_traits<Allocator>::allocate(m_alloc, BucketSize);
                 try{
-                    std::allocator_traits<Allocator>::construct(alloc_, *buckets_ptr_, value);
+                    std::allocator_traits<Allocator>::construct(m_alloc, *m_buckets_ptr, value);
                 }
                 catch(...){
-                    std::allocator_traits<Allocator>::deallocate(alloc_, *buckets_ptr_, BucketSize);
+                    std::allocator_traits<Allocator>::deallocate(m_alloc, *m_buckets_ptr, BucketSize);
                     throw;
                 }
             }
             catch(...){
-                std::allocator_traits<AllocatorPtrOnBucket>::deallocate(alloc_ptr_on_bucket_, buckets_ptr_, 1);
+                std::allocator_traits<AllocatorPtrOnBucket>::deallocate(m_alloc_ptr_on_bucket_, m_buckets_ptr, 1);
                 throw; 
             }
             
-            first_allocated_bucket_ptr_ = last_allocated_bucket_ptr_ = buckets_ptr_;
-            first_.bucket_ptr_ = last_.bucket_ptr_ = last_allocated_bucket_ptr_;
-            first_.ptr_ = last_.ptr_ = *last_allocated_bucket_ptr_; 
-            size_ = 1;
-            buckets_capacity_ = 1;
+            m_first_allocated_bucket_ptr = m_last_allocated_bucket_ptr = m_buckets_ptr;
+            m_first.m_bucket_ptr = m_last.m_bucket_ptr = m_last_allocated_bucket_ptr;
+            m_first.m_ptr = m_last.m_ptr = *m_last_allocated_bucket_ptr; 
+            m_size = 1;
+            m_buckets_capacity = 1;
         }
-        else if ((last_.ptr_ - *last_.bucket_ptr_) < static_cast<long int>(BucketSize - 1)){
-            std::allocator_traits<Allocator>::construct(alloc_, last_.ptr_ + 1, value);
-            ++last_.ptr_;
+        else if ((m_last.m_ptr - *m_last.m_bucket_ptr) < static_cast<long int>(BucketSize - 1)){
+            std::allocator_traits<Allocator>::construct(m_alloc, m_last.m_ptr + 1, value);
+            ++m_last.m_ptr;
         /*
-            it is not appropriate to increment the entire iterator (++last_) here, since the condition 
-            satisfied guarantees that (++last_) will not require a transition to the next bucket
+            it is not appropriate to increment the entire iterator (++m_last) here, since the condition 
+            satisfied guarantees that (++m_last) will not require a transition to the next bucket
         */
-            ++size_;
+            ++m_size;
         }
         else {
-            if ((last_.bucket_ptr_ - buckets_ptr_) < static_cast<long int>(buckets_capacity_ - 1)){
-                if(last_.bucket_ptr_ != last_allocated_bucket_ptr_){
-                    std::allocator_traits<Allocator>::construct(alloc_, *(last_.bucket_ptr_ + 1), value);
+            if ((m_last.m_bucket_ptr - m_buckets_ptr) < static_cast<long int>(m_buckets_capacity - 1)){
+                if(m_last.m_bucket_ptr != m_last_allocated_bucket_ptr){
+                    std::allocator_traits<Allocator>::construct(m_alloc, *(m_last.m_bucket_ptr + 1), value);
                 }
                 else{
-                    *(last_allocated_bucket_ptr_ + 1) = std::allocator_traits<Allocator>::allocate(alloc_, BucketSize);
+                    *(m_last_allocated_bucket_ptr + 1) = std::allocator_traits<Allocator>::allocate(m_alloc, BucketSize);
                     try{
-                        std::allocator_traits<Allocator>::construct(alloc_, *(last_allocated_bucket_ptr_ + 1), value);
+                        std::allocator_traits<Allocator>::construct(m_alloc, *(m_last_allocated_bucket_ptr + 1), value);
                     }
                     catch(...){
-                        std::allocator_traits<Allocator>::deallocate(alloc_, *(last_allocated_bucket_ptr_ + 1), BucketSize);
+                        std::allocator_traits<Allocator>::deallocate(m_alloc, *(m_last_allocated_bucket_ptr + 1), BucketSize);
                         throw;
                     }
-                    ++last_allocated_bucket_ptr_;
+                    ++m_last_allocated_bucket_ptr;
                 }
-                ++last_;
-                ++size_;
+                ++m_last;
+                ++m_size;
                 return;
             }
             else{ // the worst case – need reallocation
-                size_t old_buckets_capacity = (last_allocated_bucket_ptr_ - first_allocated_bucket_ptr_ + 1);
+                size_t old_buckets_capacity = (m_last_allocated_bucket_ptr - m_first_allocated_bucket_ptr + 1);
                 size_t new_buckets_capacity = old_buckets_capacity * 3;
                 
-                T** new_buckets_ptr = std::allocator_traits<AllocatorPtrOnBucket>::allocate(alloc_ptr_on_bucket_, new_buckets_capacity);
+                T** new_buckets_ptr = std::allocator_traits<AllocatorPtrOnBucket>::allocate(m_alloc_ptr_on_bucket_, new_buckets_capacity);
 
-                T** old_buckets_pos = first_allocated_bucket_ptr_;
+                T** old_buckets_pos = m_first_allocated_bucket_ptr;
                 T** new_buckets_pos = new_buckets_ptr + old_buckets_capacity;
             
-                for (T** end_pos = last_allocated_bucket_ptr_ + 1; old_buckets_pos != end_pos; ++old_buckets_pos, ++new_buckets_pos){
+                for (T** end_pos = m_last_allocated_bucket_ptr + 1; old_buckets_pos != end_pos; ++old_buckets_pos, ++new_buckets_pos){
                     *new_buckets_pos = *old_buckets_pos;
                 }
                 
                 try{
-                    *new_buckets_pos = std::allocator_traits<Allocator>::allocate(alloc_, BucketSize);
+                    *new_buckets_pos = std::allocator_traits<Allocator>::allocate(m_alloc, BucketSize);
                     try{
-                        std::allocator_traits<Allocator>::construct(alloc_, *new_buckets_pos, value);
+                        std::allocator_traits<Allocator>::construct(m_alloc, *new_buckets_pos, value);
                     }
                     catch(...){
-                        std::allocator_traits<Allocator>::deallocate(alloc_, *new_buckets_pos, BucketSize);
+                        std::allocator_traits<Allocator>::deallocate(m_alloc, *new_buckets_pos, BucketSize);
                         throw;
                     }
                 }
                 catch(...){
-                    std::allocator_traits<AllocatorPtrOnBucket>::deallocate(alloc_ptr_on_bucket_, new_buckets_ptr, new_buckets_capacity);
+                    std::allocator_traits<AllocatorPtrOnBucket>::deallocate(m_alloc_ptr_on_bucket_, new_buckets_ptr, new_buckets_capacity);
                     throw;
                 }
 
-                first_.bucket_ptr_ = new_buckets_ptr + old_buckets_capacity + (first_.bucket_ptr_ - first_allocated_bucket_ptr_);
-                last_.bucket_ptr_ = new_buckets_pos;
-                last_.ptr_ = *last_.bucket_ptr_;
+                m_first.m_bucket_ptr = new_buckets_ptr + old_buckets_capacity + (m_first.m_bucket_ptr - m_first_allocated_bucket_ptr);
+                m_last.m_bucket_ptr = new_buckets_pos;
+                m_last.m_ptr = *m_last.m_bucket_ptr;
                 
-                first_allocated_bucket_ptr_ = new_buckets_ptr + old_buckets_capacity;
-                last_allocated_bucket_ptr_ = new_buckets_pos;
+                m_first_allocated_bucket_ptr = new_buckets_ptr + old_buckets_capacity;
+                m_last_allocated_bucket_ptr = new_buckets_pos;
                 
-                std::allocator_traits<AllocatorPtrOnBucket>::deallocate(alloc_ptr_on_bucket_, buckets_ptr_, buckets_capacity_);
-                buckets_ptr_ = new_buckets_ptr;
-                buckets_capacity_ = new_buckets_capacity;
-                ++size_;
+                std::allocator_traits<AllocatorPtrOnBucket>::deallocate(m_alloc_ptr_on_bucket_, m_buckets_ptr, m_buckets_capacity);
+                m_buckets_ptr = new_buckets_ptr;
+                m_buckets_capacity = new_buckets_capacity;
+                ++m_size;
             }    
         }
     }
@@ -761,11 +759,11 @@ public:
 
 
     void pop_back(){
-        if (size_ == 0){return;}
-        std::allocator_traits<Allocator>::destroy(alloc_, last_.ptr_);
-        --last_;
-        --size_;
-        if (size_ == 0){
+        if (m_size == 0){return;}
+        std::allocator_traits<Allocator>::destroy(m_alloc, m_last.m_ptr);
+        --m_last;
+        --m_size;
+        if (m_size == 0){
             center_the_iterators_firs_and_last_();
         }
     }
@@ -783,11 +781,11 @@ public:
 
 
     void pop_front(){
-        if (size_ == 0){return;}
-        std::allocator_traits<Allocator>::destroy(alloc_, first_.ptr_);
-        ++first_;
-        --size_;
-        if (size_ == 0){
+        if (m_size == 0){return;}
+        std::allocator_traits<Allocator>::destroy(m_alloc, m_first.m_ptr);
+        ++m_first;
+        --m_size;
+        if (m_size == 0){
             center_the_iterators_firs_and_last_();
         }
     }
