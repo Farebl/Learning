@@ -223,7 +223,7 @@ private:
     AllocatorPtrOnBucket m_alloc_ptr_on_bucket;
 
 
-    void center_the_iterators_firs_and_last_(){
+    void center_the_iterators_first_and_last_(){
     /*
         Moving iterators (m_first and m_last) to the begin of the middle allocated bucket of the deque,
         to optimize subsequent operations of inserting elements in the begin or end.
@@ -235,12 +235,7 @@ private:
 
         m_last.m_bucket_ptr = m_buckets_ptr + index_of_middle_allocated_bucket;
         m_last.m_ptr = *m_last.m_bucket_ptr;
-        m_first = m_last + 1;
-    /*
-        Now, if you insert an element at the end, the new element will be at position 
-        last_+1, after which the iterator m_last is shuffled forward by 1 position. 
-        Due to this, the iterators m_first and m_last point to position of new added element.                  
-    */ 
+        m_first = m_last; 
     }
 
 
@@ -380,8 +375,11 @@ public:
             std::allocator_traits<AllocatorPtrOnBucket>::deallocate(m_alloc_ptr_on_bucket, m_buckets_ptr, m_buckets_capacity);
             m_buckets_ptr = nullptr;
             m_first_allocated_bucket_ptr = m_last_allocated_bucket_ptr = nullptr;
-            m_first.m_bucket_ptr= m_last.m_bucket_ptr = nullptr;
-            m_first.m_ptr = m_last.m_ptr = nullptr;
+            
+            m_last.m_bucket_ptr = nullptr;
+            m_last.m_ptr = nullptr;
+            m_first = m_last;
+
             m_buckets_capacity = 0;
             return;
         }
@@ -564,6 +562,7 @@ public:
                 m_first.m_bucket_ptr = m_last.m_bucket_ptr = m_buckets_ptr + (m_buckets_capacity / 2);
                 m_first.m_ptr = m_last.m_ptr = *m_last.m_bucket_ptr;
                 m_size = 0;
+                center_the_iterators_first_and_last_();
             }
             else{
                 while(m_first != last){
@@ -723,6 +722,12 @@ public:
             m_first.m_ptr = m_last.m_ptr = *m_last_allocated_bucket_ptr; 
             m_size = 1;
             m_buckets_capacity = 1;
+            return;
+        }
+        else if (m_size == 0){
+            std::allocator_traits<Allocator>::construct(m_alloc, m_last.m_ptr, value);
+            ++m_size;
+            return;
         }
         else if ((m_last.m_ptr - *m_last.m_bucket_ptr) < static_cast<long int>(BucketSize - 1)){
             std::allocator_traits<Allocator>::construct(m_alloc, m_last.m_ptr + 1, value);
@@ -732,6 +737,7 @@ public:
             satisfied guarantees that (++m_last) will not require a transition to the next bucket
         */
             ++m_size;
+            return;
         }
         else {
             if ((m_last.m_bucket_ptr - m_buckets_ptr) < static_cast<long int>(m_buckets_capacity - 1)){
@@ -792,6 +798,7 @@ public:
                 m_buckets_ptr = new_buckets_ptr;
                 m_buckets_capacity = new_buckets_capacity;
                 ++m_size;
+                return;
             }    
         }
     }
@@ -814,7 +821,7 @@ public:
         --m_last;
         --m_size;
         if (m_size == 0){
-            center_the_iterators_firs_and_last_();
+            center_the_iterators_first_and_last_();
         }
     }
 
@@ -836,7 +843,7 @@ public:
         ++m_first;
         --m_size;
         if (m_size == 0){
-            center_the_iterators_firs_and_last_();
+            center_the_iterators_first_and_last_();
         }
     }
     
