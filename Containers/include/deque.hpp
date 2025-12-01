@@ -1061,7 +1061,7 @@ public:
                 }
                 catch(...){
                     std::allocator_traits<Allocator>::deallocate(m_alloc, *result_of_realloc.new_last_old_bucket_ptr, BucketSize);
-                    std::allocator_traits<AllocatorPtrOnBucket>::deallocate(m_alloc_ptr_on_bucket_, result_of_realloc.new_buckets_ptr, result_of_realloc.new_buckets_capacity);
+                    std::allocator_traits<AllocatorPtrOnBucket>::deallocate(m_alloc_ptr_on_bucket, result_of_realloc.new_buckets_ptr, result_of_realloc.new_buckets_capacity);
                     throw;
                 }
                 
