@@ -202,6 +202,8 @@ public:
     using const_pointer          = typename std::allocator_traits<Allocator>::const_pointer;
     using reference              = value_type&;
     using const_reference        = const value_type&;
+    using R_val_reference        = value_type&&;
+    using const_R_val_reference  = const value_type&&;
     using size_type              = size_t;
     using difference_type        = typename base_iterator<false>::difference_type;   
 
@@ -313,10 +315,20 @@ public:
     // reference at(size_type pos){}
     // const_reference at(size_type pos) const {}
 
-     
-    // reference operator[](size_type pos){}
-    // const_reference operator[](size_type pos) const {}
 
+    reference operator[](size_type pos) & {
+        return *((m_first + pos).m_ptr);
+    }   
+    const_reference operator[](size_type pos) const& {
+        return *((m_first + pos).m_ptr);
+    }
+
+    R_val_reference operator[](size_type pos) && {
+        return std::move(*((m_first + pos).m_ptr));
+    }   
+    const_R_val_reference operator[](size_type pos) const&& {
+        return std::move(*((m_first + pos).m_ptr));
+    }
     
     reference front() {return *m_first;}
     const_reference front() const {return *m_first;}
