@@ -320,19 +320,19 @@ public:
     // reference at(size_type pos){}
     // const_reference at(size_type pos) const {}
 
-     
+
     reference operator[](size_type pos) & {
-        return *((first_ + pos).ptr_);
+        return *((m_first + pos).m_ptr);
     }   
     const_reference operator[](size_type pos) const& {
-        return *((first_ + pos).ptr_);
+        return *((m_first + pos).m_ptr);
     }
 
     R_val_reference operator[](size_type pos) && {
-        return std::move(*((first_ + pos).ptr_));
+        return std::move(*((m_first + pos).m_ptr));
     }   
     const_R_val_reference operator[](size_type pos) const&& {
-        return std::move(*((first_ + pos).ptr_));
+        return std::move(*((m_first + pos).m_ptr));
     }
     
     reference front() {return *m_first;}
