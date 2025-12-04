@@ -745,7 +745,7 @@ public:
     
 
     iterator insert(const_iterator pos, size_type count, const T& value){
-        if (count < 1) {return {pos.bucket_ptr_, pos.ptr_};}
+        if (count < 1) {return {pos.m_bucket_ptr, const_cast<T*>(pos.m_ptr)};}
 
         if (m_buckets_ptr == nullptr){
             size_t count_of_needed_buckets;
@@ -804,7 +804,38 @@ public:
 
             return {m_buckets_ptr, *m_buckets_ptr};
         }
-        return {pos.m_bucket_ptr, pos.m_ptr};
+        if (m_size == 0){ // m_first & m_last are centered in deque and pointing to the same position (call center_the_iterators_first_and_last_())
+            size_t count_of_allocated_cells_from_m_last = 
+                ((m_last_allocated_bucket_ptr - m_last.m_bucket_ptr) * BucketSize)
+                +
+                ((*m_last.m_bucket_ptr + BucketSize - 1) - m_last.m_ptr);
+            if (count_of_allocated_cells_from_m_last >= count){
+                size_t successful_constructed_count = 0;
+                try{
+                    while(successful_constructed_count < count){
+                        std::allocator_traits<Allocator>::construct(m_alloc, m_last.m_ptr, value);
+                        ++m_last;
+                        ++successful_constructed_count;
+                    }
+                    //now m_last is equal to end(), that's why:
+                    --m_last;
+                }
+                catch(...){
+                    --m_last;
+                    while(successful_constructed_count > 0){
+                        std::allocator_traits<Allocator>::destroy(m_alloc, m_last.m_ptr);
+                        --m_last;
+                        --successful_constructed_count;
+                    }
+                    //now m_last is behind m_first, that's why:
+                    ++m_last;
+                    throw;
+                }
+                m_size+=count;
+                return m_first;
+            }
+        }
+        return {pos.m_bucket_ptr, const_cast<T*>(pos.m_ptr)};
 
     }
 
