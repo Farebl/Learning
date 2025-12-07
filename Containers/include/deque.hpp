@@ -797,7 +797,7 @@ public:
             m_first.m_ptr = *m_first.m_bucket_ptr;
             
             m_last.m_bucket_ptr = m_last_allocated_bucket_ptr;
-            m_last.m_ptr = *m_last_allocated_bucket_ptr + j;
+            m_last.m_ptr = *m_last_allocated_bucket_ptr + j - 1; // after cycle of constructing elements, j is incremented by 1 more, than necessary (to stop cycle)
 
             m_buckets_capacity = count_of_needed_buckets;
             m_size += count;
