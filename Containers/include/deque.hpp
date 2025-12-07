@@ -747,9 +747,8 @@ public:
     iterator insert(const_iterator pos, size_type count, const T& value){
         if (count < 1) {return {pos.m_bucket_ptr, const_cast<T*>(pos.m_ptr)};}
 
-        if (m_buckets_ptr == nullptr){
-            size_t count_of_needed_buckets;
-            count_of_needed_buckets = (count % BucketSize == 0) ? count/BucketSize : count/BucketSize + 1;
+        else if (m_buckets_ptr == nullptr){
+            size_t count_of_needed_buckets = (count % BucketSize == 0) ? count/BucketSize : count/BucketSize + 1;
 
             m_buckets_ptr = std::allocator_traits<AllocatorPtrOnBucket>::allocate(m_alloc_ptr_on_bucket, count_of_needed_buckets);
             size_t i = 0;
@@ -804,12 +803,17 @@ public:
 
             return {m_buckets_ptr, *m_buckets_ptr};
         }
-        if (m_size == 0){ // m_first & m_last are centered in deque and pointing to the same position (call center_the_iterators_first_and_last_())
-            size_t count_of_allocated_cells_from_m_last = 
-                ((m_last_allocated_bucket_ptr - m_last.m_bucket_ptr) * BucketSize)
-                +
-                ((*m_last.m_bucket_ptr + BucketSize - 1) - m_last.m_ptr);
-            if (count_of_allocated_cells_from_m_last >= count){
+        else if (m_size == 0){ // m_first & m_last are centered in deque and pointing to the same position (call center_the_iterators_m_first_and_m_last_())
+
+            size_t count_of_allocated_cells = (m_last_allocated_bucket_ptr - m_first_allocated_bucket_ptr + 1) * BucketSize;
+            if (count_of_allocated_cells >= count){
+                size_t new_pos_for_m_first = (count_of_allocated_cells - count) / 2;
+                // set m_first in the beginning
+                m_first.m_bucket_ptr = m_first_allocated_bucket_ptr;
+                m_first.m_ptr = *m_first.m_bucket_ptr;
+                
+                m_first += new_pos_for_m_first;
+                m_last = m_first;
                 size_t successful_constructed_count = 0;
                 try{
                     while(successful_constructed_count < count){
@@ -830,12 +834,99 @@ public:
                     center_the_iterators_m_first_and_m_last_();
                     throw;
                 }
-                m_size+=count;
+                m_size += count;
                 return m_first;
             }
+            else { // we need to allocate additional buckets
+                size_t possible_count_of_cells = m_buckets_capacity * BucketSize;
+                if (possible_count_of_cells >= count){
+                    // allocating additional buckets
+                    // constructing elements
+                }
+                else{
+                    // realloc outer array
+                    // allocating additional buckets
+                    // constructing elements
+                }
+            }
         }
-        return {pos.m_bucket_ptr, const_cast<T*>(pos.m_ptr)};
 
+        else{ // m_size != 0
+            if (m_last - pos <= pos - m_first){ 
+            // shift elements to the end side
+
+                size_t count_of_allocated_cells_from_m_last = 
+                    ((m_last_allocated_bucket_ptr - m_last.m_bucket_ptr) * BucketSize)
+                    +
+                    ((*m_last.m_bucket_ptr + BucketSize - 1) - m_last.m_ptr);
+
+                if (count_of_allocated_cells_from_m_last >= count){
+                    // shift old elements
+                    // constructing new elements
+                }
+                else { // lack of allocated cells in the end side. Let's try moving empty allocated backets from the beginning to the end.
+                    size_t count_of_lacking_cells = count - count_of_allocated_cells_from_m_last; 
+                    size_t count_of_free_allocated_buckets_in_the_beginning = m_first.m_bucket_ptr - m_first_allocated_bucket_ptr;
+                    
+                    if ((count_of_free_allocated_buckets_in_the_beginning * BucketSize) >= count_of_lacking_cells){
+                        // try to swap free alllocated buckets from the beginning to the end
+                        // shift old elements
+                        // constructing new elements
+                    }
+                    else{ // lack of allocated buckets -> we need to allocate new buckets
+                        size_t count_of_non_allocated_buckets_in_the_end = (m_buckets_ptr + m_buckets_capacity - 1) - m_last_allocated_bucket_ptr;
+                        if ((count_of_non_allocated_buckets_in_the_end * BucketSize) >= count_of_lacking_cells){
+                            // allocating lacking buckets 
+                            // shift old elements
+                            // constructing new elements
+                        }
+                        else{
+                            // reallocate outer array 
+                            // allocate lacking buckets 
+                            // shift old elements
+                            // constructing new elements
+                        }
+                    }
+                } // end else {...} -> lack of allocated cells in the end side.
+            } 
+            else { 
+            // shift elements to the beginning side
+                size_t count_of_allocated_cells_from_m_first = 
+                    ((m_first.m_bucket_ptr - m_first_allocated_bucket_ptr) * BucketSize)
+                    +
+                    (m_first.m_ptr - *m_first.m_bucket_ptr);
+                
+                if (count_of_allocated_cells_from_m_first >= count){
+                    // shift old elements
+                    // constructing new elements
+                }
+                else { // lack of allocated cells in the beginning side. Let's try moving empty allocated backets from the end to the beginning.
+                    size_t count_of_lacking_cells = count - count_of_allocated_cells_from_m_first; 
+                    size_t count_of_free_allocated_buckets_in_the_end = m_last_allocated_bucket_ptr - m_last.m_bucket_ptr;
+
+                    if ((count_of_free_allocated_buckets_in_the_end * BucketSize) >= count_of_lacking_cells){
+                        // try to swap free alllocated buckets from the beginning to the end
+                        // shift old elements
+                        // constructing new elements
+                    }
+                    else{ // lack of allocated buckets -> we need to allocate new buckets
+                        size_t count_of_non_allocated_buckets_in_the_beginning = m_first_allocated_bucket_ptr - m_buckets_ptr;
+                        if ((count_of_non_allocated_buckets_in_the_beginning * BucketSize) >= count_of_lacking_cells){
+                            // allocating lacking buckets 
+                            // shift old elements
+                            // constructing new elements
+                        }
+                        else{
+                            // reallocate outer array 
+                            // allocate lacking buckets 
+                            // shift old elements
+                            // constructing new elements
+                        }
+                    }
+                }
+            } // end else {...} -> shift to the beginning
+        } // end of else (m_size != 0) {...}
+        return {pos.m_bucket_ptr, const_cast<T*>(pos.m_ptr)};
     }
 
     
