@@ -452,7 +452,7 @@ private:
     AllocatorPtrOnBucket m_alloc_ptr_on_bucket;
 
 
-    void center_the_iterators_first_and_last_(){
+    void center_the_iterators_m_first_and_m_last_(){
     /*
         Moving iterators (m_first and m_last) to the begin of the middle allocated bucket of the deque,
         to optimize subsequent operations of inserting elements in the begin or end.
@@ -827,8 +827,7 @@ public:
                         --m_last;
                         --successful_constructed_count;
                     }
-                    //now m_last is behind m_first, that's why:
-                    ++m_last;
+                    center_the_iterators_m_first_and_m_last_();
                     throw;
                 }
                 m_size+=count;
@@ -878,7 +877,7 @@ public:
                 m_first.m_bucket_ptr = m_last.m_bucket_ptr = m_buckets_ptr + (m_buckets_capacity / 2);
                 m_first.m_ptr = m_last.m_ptr = *m_last.m_bucket_ptr;
                 m_size = 0;
-                center_the_iterators_first_and_last_();
+                center_the_iterators_m_first_and_m_last_();
             }
             else{
                 while(m_first != last){
@@ -1136,7 +1135,7 @@ public:
         --m_last;
         --m_size;
         if (m_size == 0){
-            center_the_iterators_first_and_last_();
+            center_the_iterators_m_first_and_m_last_();
         }
     }
 
@@ -1158,7 +1157,7 @@ public:
         ++m_first;
         --m_size;
         if (m_size == 0){
-            center_the_iterators_first_and_last_();
+            center_the_iterators_m_first_and_m_last_();
         }
     }
     
