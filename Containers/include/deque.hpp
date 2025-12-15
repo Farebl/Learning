@@ -6,7 +6,7 @@
 
 namespace Farebl{
 
-template <typename T, typename Allocator = std::allocator<T>, size_t BucketSize = ((sizeof(T) < 256) ? 4096/sizeof(T) : 16)>
+template <typename T, typename Alloc = std::allocator<T>, size_t BucketSize = ((sizeof(T) < 256) ? 4096/sizeof(T) : 16)>
 class deque{
 
     static_assert(BucketSize > 0, "The bucket size must be 1 or greater");
@@ -24,7 +24,7 @@ private:
         using iterator_category = std::random_access_iterator_tag;
 
     private:
-        friend class deque<T, Allocator, BucketSize>;
+        friend class deque<T, Alloc, BucketSize>;
         T** m_bucket_ptr;
         pointer m_ptr;
         base_iterator(T** bucket_ptr, pointer ptr): m_bucket_ptr(bucket_ptr), m_ptr(ptr){}
@@ -197,9 +197,9 @@ private:
     };
 public: 
     using value_type             = T;
-    using allocator_type         = Allocator;
-    using pointer                = typename std::allocator_traits<Allocator>::pointer;
-    using const_pointer          = typename std::allocator_traits<Allocator>::const_pointer;
+    using allocator_type         = typename std::allocator_traits<Alloc>::template rebind_alloc<T>;
+    using pointer                = typename std::allocator_traits<allocator_type>::pointer;
+    using const_pointer          = typename std::allocator_traits<allocator_type>::const_pointer;
     using reference              = value_type&;
     using const_reference        = const value_type&;
     using R_val_reference        = value_type&&;
@@ -220,6 +220,7 @@ private:
     base_iterator<false> m_last;
     size_type m_size;
     size_type m_buckets_capacity;
+    using Allocator = allocator_type;
     Allocator m_alloc;
     using AllocatorPtrOnBucket = typename std::allocator_traits<Allocator>::template rebind_alloc<T*>;
     AllocatorPtrOnBucket m_alloc_ptr_on_bucket_;
