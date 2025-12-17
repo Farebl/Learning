@@ -24,10 +24,23 @@ private:
         using iterator_category = std::random_access_iterator_tag;
 
     private:
-        friend class deque<T, Alloc, BucketSize>;
+        friend class deque;
+        T** m_buckets_ptr;
+        size_t m_buckets_capacity;
+        difference_type m_pseudo_cell_index; 
+    /*      
+        m_pseudo_cell_index: 
+        if (m_pseudo_cell_index == -1) --> it means that it is valid iterator
+        else --> it means index of (pseudo-cell), in pseudo bucket
+    */
         T** m_bucket_ptr;
         pointer m_ptr;
-        base_iterator(T** bucket_ptr, pointer ptr): m_bucket_ptr(bucket_ptr), m_ptr(ptr){}
+        base_iterator(T** buckets_ptr, size_t buckets_capacity, T** bucket_ptr, pointer ptr):  
+            m_buckets_ptr(buckets_ptr), 
+            m_buckets_capacity(buckets_capacity),
+            m_pseudo_cell_index(-1),
+            m_bucket_ptr(bucket_ptr), 
+            m_ptr(ptr){}
     public:
 
         reference operator*() const {return *m_ptr; }
@@ -35,15 +48,46 @@ private:
 	    pointer operator->() const {return m_ptr;}
 
         base_iterator& operator++(){
-            if (m_bucket_ptr != nullptr){
-                if (const_cast<T*>(m_ptr) - *m_bucket_ptr < static_cast<difference_type>(BucketSize-1)){
-                   ++m_ptr;
+            if (m_buckets_ptr != nullptr){
+                if (m_ptr != nullptr){
+                    if(((const_cast<T*>(m_ptr) - *m_bucket_ptr) + 1) == static_cast<difference_type>(BucketSize)){
+                        ++m_bucket_ptr;
+                        if (
+                            (m_bucket_ptr >= m_buckets_ptr)
+                                &&
+                            (m_bucket_ptr < (m_buckets_ptr + m_buckets_capacity))
+                        ){
+                            m_ptr = *m_bucket_ptr;
+                        }
+                        else{
+                            m_ptr = nullptr;
+                            m_pseudo_cell_index = 0; // iterator points of 1-st pseudo cell of pseudo bucket
+                        }  
+                    }
+                    else{
+                        ++m_ptr;
+                    }
                 }
-                else{
-                    ++m_bucket_ptr;
-                    m_ptr = *m_bucket_ptr; 
+                else {
+                    if(m_pseudo_cell_index == (static_cast<difference_type>(BucketSize) - 1)){
+                        ++m_bucket_ptr;
+                        if (
+                            (m_bucket_ptr >= m_buckets_ptr)
+                                &&
+                            (m_bucket_ptr < (m_buckets_ptr + m_buckets_capacity))
+                        ){
+                            m_ptr = *m_bucket_ptr;
+                            m_pseudo_cell_index = -1;
+                        }
+                        else{
+                            m_pseudo_cell_index = 0;
+                        }
+                    }
+                    else{
+                        ++m_pseudo_cell_index;
+                    }
                 }
-            }
+            }            
             return *this;
         }
 
@@ -55,13 +99,44 @@ private:
 
 
         base_iterator& operator--(){
-            if (m_bucket_ptr != nullptr){
-                if (m_ptr != *m_bucket_ptr){
-                    --m_ptr;
+            if (m_buckets_ptr != nullptr){
+                if (m_ptr != nullptr){
+                    if (m_ptr == *m_bucket_ptr){
+                        --m_bucket_ptr;
+                        if (
+                            (m_bucket_ptr >= m_buckets_ptr)
+                                &&
+                            (m_bucket_ptr < (m_buckets_ptr + m_buckets_capacity))
+                        ){
+                            m_ptr = *m_buckets_ptr + static_cast<difference_type>(BucketSize) - 1;
+                        }
+                        else{
+                            m_ptr = nullptr;
+                            m_pseudo_cell_index = static_cast<difference_type>(BucketSize) - 1; // iterator points of last pseudo cell of pseudo bucket
+                        }
+                    }   
+                    else{
+                        --m_ptr;
+                    }
                 }
                 else{
-                    --m_bucket_ptr;
-                    m_ptr = *m_bucket_ptr + (BucketSize - 1);
+                    if(m_pseudo_cell_index == 0){
+                        --m_bucket_ptr;
+                        if (
+                            (m_bucket_ptr >= m_buckets_ptr)
+                                &&
+                            (m_bucket_ptr < (m_buckets_ptr + m_buckets_capacity))
+                        ){
+                            m_ptr = *m_buckets_ptr + static_cast<difference_type>(BucketSize) - 1;
+                            m_pseudo_cell_index = -1;
+                        }
+                        else{
+                            m_pseudo_cell_index = static_cast<difference_type>(BucketSize) - 1;
+                        }
+                    }
+                    else{
+                        --m_pseudo_cell_index;
+                    }
                 }
             }
             return *this;
@@ -172,7 +247,12 @@ private:
 
         template<bool OtherIsConst>
         bool operator==(const base_iterator<OtherIsConst>& other){
-            return m_bucket_ptr == other.m_bucket_ptr && m_ptr == other.m_ptr; 
+            return (
+                m_buckets_ptr == other.m_buckets_ptr 
+                    && 
+                m_bucket_ptr == other.m_bucket_ptr 
+                    && 
+                m_ptr == other.m_ptr); 
         }
         template<bool OtherIsConst>
         bool operator!=(const base_iterator<OtherIsConst>& other){
@@ -193,7 +273,7 @@ private:
         template<bool OtherIsConst>
         bool operator<=(const base_iterator<OtherIsConst>& other){    return !(*this > other); }
 
-        operator base_iterator<true>(){return {m_bucket_ptr, const_cast<const T*>(m_ptr)};}
+        operator base_iterator<true>(){return {m_buckets_ptr, m_buckets_capacity, m_bucket_ptr, const_cast<const T*>(m_ptr)};}
     };
 public: 
     using value_type             = T;
@@ -248,8 +328,8 @@ public:
         m_buckets_ptr(nullptr), 
         m_first_allocated_bucket_ptr(nullptr),
         m_last_allocated_bucket_ptr(nullptr),
-        m_first(nullptr, nullptr), 
-        m_last(nullptr, nullptr),
+        m_first(m_buckets_ptr, 0, nullptr, nullptr), 
+        m_last(m_buckets_ptr, 0, nullptr, nullptr),
         m_size(0), 
         m_buckets_capacity(0), 
         m_alloc(Allocator()),
@@ -260,8 +340,8 @@ public:
         m_buckets_ptr(nullptr), 
         m_first_allocated_bucket_ptr(nullptr),
         m_last_allocated_bucket_ptr(nullptr),
-        m_first(nullptr, nullptr), 
-        m_last(nullptr, nullptr), 
+        m_first(m_buckets_ptr, 0, nullptr, nullptr), 
+        m_last(m_buckets_ptr, 0, nullptr, nullptr), 
         m_size(0), 
         m_buckets_capacity(0), 
         m_alloc(alloc),
@@ -340,19 +420,19 @@ public:
 
 
     iterator begin() {return {m_first};}
-    const_iterator begin() const {return {m_first.m_bucket_ptr, const_cast<const T*>(m_first.m_ptr)};}
+    const_iterator begin() const {return {m_buckets_ptr, m_buckets_capacity, m_first.m_bucket_ptr, const_cast<const T*>(m_first.m_ptr)};}
     const_iterator cbegin() const noexcept {return begin();}
 
     //m_last pointing on the last element (not to the next position after last element, but straight at last element)
     iterator end() {
         if (m_buckets_ptr == nullptr){
-            return {nullptr, nullptr};
+            return {m_buckets_ptr, m_buckets_capacity, nullptr, nullptr};
         }
         return {m_last + 1 };
     }
     const_iterator end() const {
         if (m_buckets_ptr == nullptr){
-            return {nullptr, nullptr};
+            return {m_buckets_ptr, m_buckets_capacity, nullptr, nullptr};
         }
         return {m_last + 1};
     } 
@@ -388,9 +468,12 @@ public:
             std::allocator_traits<AllocatorPtrOnBucket>::deallocate(m_alloc_ptr_on_bucket_, m_buckets_ptr, m_buckets_capacity);
             m_buckets_ptr = nullptr;
             m_first_allocated_bucket_ptr = m_last_allocated_bucket_ptr = nullptr;
-            
+
+            m_last.m_buckets_ptr = nullptr;
+            m_last.m_buckets_capacity = 0;
             m_last.m_bucket_ptr = nullptr;
             m_last.m_ptr = nullptr;
+
             m_first = m_last;
 
             m_buckets_capacity = 0;
@@ -420,7 +503,7 @@ public:
         }
 
         iterator current_deque_it = m_first;
-        iterator new_deque_it(new_buckets_ptr, *new_buckets_ptr);
+        iterator new_deque_it(new_buckets_ptr, new_buckets_capacity, new_buckets_ptr, *new_buckets_ptr);
         iterator end_pos = end();
         try{
             while(current_deque_it != end_pos){
@@ -429,7 +512,7 @@ public:
         }
         catch(...){
             --new_deque_it;
-            end_pos = --iterator(new_buckets_ptr, *new_buckets_ptr);
+            end_pos = --iterator(new_buckets_ptr, new_buckets_capacity, new_buckets_ptr, *new_buckets_ptr);
             while (new_deque_it != end_pos){
                 std::allocator_traits<Allocator>::destroy(m_alloc, new_deque_it.m_ptr);
                 --new_deque_it;
@@ -455,8 +538,11 @@ public:
         m_first_allocated_bucket_ptr = new_buckets_ptr;
         m_last_allocated_bucket_ptr  = new_buckets_ptr + new_buckets_capacity - 1;
 
+        m_first.m_buckets_ptr = new_buckets_ptr;
+        m_last.m_buckets_capacity = new_buckets_capacity;
         m_first.m_bucket_ptr = m_first_allocated_bucket_ptr;
         m_first.m_ptr = *m_first_allocated_bucket_ptr;
+
         m_last = new_deque_it;
     }
 
@@ -496,7 +582,7 @@ public:
         if (m_size == 0) {return end();}
 
         if (first == last) {    
-            return {last.m_bucket_ptr, const_cast<T*>(last.m_ptr)};
+            return {last.m_buckets_ptr, last.m_buckets_capacity, last.m_bucket_ptr, const_cast<T*>(last.m_ptr)};
         } 
         /*
             like in gcc & clang here is no checking (first > last);
@@ -522,7 +608,7 @@ public:
                     --m_size;
                 }
             } 
-            return {last.m_bucket_ptr, const_cast<T*>(last.m_ptr)}; 
+            return {last.m_buckets_ptr, last.m_buckets_capacity, last.m_bucket_ptr, const_cast<T*>(last.m_ptr)}; 
         }
         else if (last == cend()){
             const_iterator end_pos = first - 1;
@@ -531,7 +617,7 @@ public:
                 --m_last;
                 --m_size;
             }
-            return {last.m_bucket_ptr, const_cast<T*>(last.m_ptr)};
+            return {last.m_buckets_ptr, last.m_buckets_capacity, last.m_bucket_ptr, const_cast<T*>(last.m_ptr)};
         }
 
         else if (first.m_ptr == *first.m_bucket_ptr && last.m_ptr == *last.m_bucket_ptr){
@@ -577,7 +663,7 @@ public:
                     ++first; 
                 }       
 
-                return {m_last.m_bucket_ptr - old_distance_from_last_to_end, const_cast<T*>(last.m_ptr)};
+                return {m_buckets_ptr, m_buckets_capacity, m_last.m_bucket_ptr - old_distance_from_last_to_end, const_cast<T*>(last.m_ptr)};
             }
 
             // move to begin
@@ -600,14 +686,14 @@ public:
                 std::allocator_traits<Allocator>::destroy(m_alloc, const_cast<T*>(first.m_ptr));
                 ++first; 
             }        
-            return {last.m_bucket_ptr, const_cast<T*>(last.m_ptr)};
+            return {last.m_buckets_ptr, last.m_buckets_capacity, last.m_bucket_ptr, const_cast<T*>(last.m_ptr)};
         }
 
         //the worst case
 
         //Because, const_iterator::operator* returns const T& than we need to get a non const iterator to first (to avoid copy instead move)
-        iterator first_it(first.m_bucket_ptr, const_cast<T*>(first.m_ptr));
-        iterator second_it(last.m_bucket_ptr, const_cast<T*>(last.m_ptr));
+        iterator first_it(first.m_buckets_ptr, first.m_buckets_capacity, first.m_bucket_ptr, const_cast<T*>(first.m_ptr));
+        iterator second_it(last.m_buckets_ptr, last.m_buckets_capacity, last.m_bucket_ptr, const_cast<T*>(last.m_ptr));
 
         if (m_last - last < first - m_first){
         // move delet-elements to end side
@@ -646,7 +732,7 @@ public:
             --m_size;
         }
 
-        return {last.m_bucket_ptr, const_cast<T*>(last.m_ptr)};
+        return {last.m_buckets_ptr, last.m_buckets_capacity, last.m_bucket_ptr, const_cast<T*>(last.m_ptr)};
     }
 
 
@@ -669,10 +755,17 @@ public:
             }
             
             m_first_allocated_bucket_ptr = m_last_allocated_bucket_ptr = m_buckets_ptr;
-            m_first.m_bucket_ptr = m_last.m_bucket_ptr = m_last_allocated_bucket_ptr;
-            m_first.m_ptr = m_last.m_ptr = *m_last_allocated_bucket_ptr; 
-            m_size = 1;
+
             m_buckets_capacity = 1;
+
+            m_first.m_buckets_ptr = m_buckets_ptr;
+            m_first.m_buckets_capacity = m_buckets_capacity;
+            m_first.m_bucket_ptr = m_last_allocated_bucket_ptr;
+            m_first.m_ptr = *m_last_allocated_bucket_ptr; 
+
+            m_last = m_first;
+            
+            m_size = 1;
             return;
         }
         else if (m_size == 0){
@@ -738,7 +831,13 @@ public:
                     throw;
                 }
 
+
+                m_first.m_buckets_ptr = new_buckets_ptr;
+                m_first.m_buckets_capacity = new_buckets_capacity;
                 m_first.m_bucket_ptr = new_buckets_ptr + old_buckets_capacity + (m_first.m_bucket_ptr - m_first_allocated_bucket_ptr);
+                
+                m_last.m_buckets_ptr = new_buckets_ptr;
+                m_last.m_buckets_capacity = new_buckets_capacity;
                 m_last.m_bucket_ptr = new_buckets_pos;
                 m_last.m_ptr = *m_last.m_bucket_ptr;
                 
