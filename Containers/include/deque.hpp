@@ -151,38 +151,184 @@ private:
         
         base_iterator& operator+=(difference_type value) & {
             if (value < 0) return *this -= value;
-            if (m_bucket_ptr != nullptr){
-                difference_type result_index = (const_cast<T*>(m_ptr) - *m_bucket_ptr) + value % BucketSize;
-                
-                if (value >= static_cast<difference_type>(BucketSize))
-                    m_bucket_ptr += value / BucketSize;
-                
-                if (result_index < static_cast<difference_type>(BucketSize)){
-                    m_ptr = *m_bucket_ptr + result_index;
+            if (m_buckets_ptr != nullptr){
+                if (m_ptr != nullptr){
+                    difference_type result_index = (const_cast<T*>(m_ptr) - *m_bucket_ptr) + (value % BucketSize);
+                    
+                    if (value >= static_cast<difference_type>(BucketSize)){
+                        m_bucket_ptr += value / BucketSize;
+                    }
+                    if (
+                        (m_bucket_ptr >= m_buckets_ptr)
+                            &&
+                        (m_bucket_ptr < (m_buckets_ptr + m_buckets_capacity))
+                    ){ 
+                        if (result_index < static_cast<difference_type>(BucketSize)){
+                            m_ptr = *m_bucket_ptr + result_index;
+                        }
+                        else{
+                            ++m_bucket_ptr;
+                            if (
+                                (m_bucket_ptr >= m_buckets_ptr)
+                                    &&
+                                (m_bucket_ptr < (m_buckets_ptr + m_buckets_capacity))
+                            ){ 
+                                m_ptr = *m_bucket_ptr + (result_index - BucketSize);
+                            }
+                            else{
+                                m_ptr = nullptr;
+                                m_pseudo_cell_index = result_index - static_cast<difference_type>(BucketSize); 
+                            }
+                        }
+                    }
+                    else{
+                        m_ptr = nullptr;
+                        if (result_index < static_cast<difference_type>(BucketSize)){
+                            m_pseudo_cell_index = result_index;
+                        }
+                        else{
+                            ++m_bucket_ptr;
+                            // there isn`t necessary to check boundaries: we have already gone beyond them
+                            m_pseudo_cell_index = result_index - static_cast<difference_type>(BucketSize);
+                        }
+                    }
                 }
                 else{
-                    ++m_bucket_ptr;
-                    m_ptr = *m_bucket_ptr + (result_index - BucketSize);
-                } 
+                    difference_type result_pseudo_index = m_pseudo_cell_index + (value % BucketSize);
+                    if (value >= static_cast<difference_type>(BucketSize)){
+                        m_bucket_ptr += value / BucketSize;
+                    }
+                    if (
+                        (m_bucket_ptr >= m_buckets_ptr)
+                            &&
+                        (m_bucket_ptr < (m_buckets_ptr + m_buckets_capacity))
+                    ){
+                        if (result_pseudo_index < static_cast<difference_type>(BucketSize)){
+                            difference_type result_index = m_pseudo_cell_index + (value % BucketSize);
+                            m_ptr = *m_bucket_ptr + result_index;
+                            m_pseudo_cell_index = -1;
+                        }
+                        else{
+                            ++m_bucket_ptr;
+                            if (
+                                (m_bucket_ptr >= m_buckets_ptr)
+                                    &&
+                                (m_bucket_ptr < (m_buckets_ptr + m_buckets_capacity))
+                            ){ 
+                                 m_ptr = *m_bucket_ptr + (result_pseudo_index - static_cast<difference_type>(BucketSize));
+                                 m_pseudo_cell_index = -1;
+                            }
+                            else{
+                                 m_pseudo_cell_index = result_pseudo_index - static_cast<difference_type>(BucketSize);
+                            }
+                        }
+                    }
+                    else{
+                        if (result_pseudo_index < static_cast<difference_type>(BucketSize)){
+                            m_pseudo_cell_index = result_pseudo_index;
+                        }
+                        else{
+                            ++m_bucket_ptr;
+                            if (
+                                (m_bucket_ptr >= m_buckets_ptr)
+                                    &&
+                                (m_bucket_ptr < (m_buckets_ptr + m_buckets_capacity))
+                            ){
+                                m_ptr = *m_bucket_ptr + (result_pseudo_index - static_cast<difference_type>(BucketSize));
+                                m_pseudo_cell_index = -1;
+                            }
+                            else{
+                                m_pseudo_cell_index = result_pseudo_index - static_cast<difference_type>(BucketSize);
+                            }
+                        }
+                    }
+                }
             }
             return *this;
         }
 
         base_iterator& operator-=(difference_type value) & {
             if (value < 0) {return *this += value;}
-            if (m_bucket_ptr != nullptr){
-                difference_type result_index_in_bucket = (const_cast<T*>(m_ptr) - *m_bucket_ptr) - value % BucketSize;
-                
-                if (value > static_cast<difference_type>(BucketSize))
-                    m_bucket_ptr -= value / BucketSize;
-            
-                if (result_index_in_bucket > -1){
-                    m_ptr = *m_bucket_ptr + result_index_in_bucket;
-                } 
-                else{
-                    --m_bucket_ptr;
-                    m_ptr = *m_bucket_ptr + (BucketSize + result_index_in_bucket);
-                } 
+            if (m_buckets_ptr != nullptr){
+                if (m_ptr != nullptr){
+                    difference_type result_index_in_bucket = (const_cast<T*>(m_ptr) - *m_bucket_ptr) - (value % BucketSize);
+                    
+                    if (value > static_cast<difference_type>(BucketSize)){
+                        m_bucket_ptr -= value / BucketSize;
+                    }
+                    if (
+                        (m_bucket_ptr >= m_buckets_ptr)
+                            &&
+                        (m_bucket_ptr < (m_buckets_ptr + m_buckets_capacity))
+                    ){ 
+                        if (result_index_in_bucket > -1){
+                            m_ptr = *m_bucket_ptr + result_index_in_bucket;
+                        } 
+                        else{
+                            --m_bucket_ptr;
+                            if (
+                                (m_bucket_ptr >= m_buckets_ptr)
+                                    &&
+                                (m_bucket_ptr < (m_buckets_ptr + m_buckets_capacity))
+                            ){
+                                m_ptr = *m_bucket_ptr + (BucketSize + result_index_in_bucket);
+                            }
+                            else{
+                                m_ptr = nullptr;
+                                m_pseudo_cell_index = BucketSize + result_index_in_bucket;
+                            }
+                        }
+                    }
+                    else{
+                        m_ptr = nullptr;
+                        if (result_index_in_bucket > -1){
+                            m_pseudo_cell_index = result_index_in_bucket;
+                        } 
+                        else{
+                            --m_bucket_ptr;
+                            m_pseudo_cell_index = BucketSize + result_index_in_bucket;
+                        }
+                    }
+                }
+                else {
+                    difference_type result_pseudo_index_in_bucket = m_pseudo_cell_index - (value % BucketSize);
+                    if (value > static_cast<difference_type>(BucketSize)){
+                        m_bucket_ptr -= value / BucketSize;
+                    }
+                    if (
+                        (m_bucket_ptr >= m_buckets_ptr)
+                            &&
+                        (m_bucket_ptr < (m_buckets_ptr + m_buckets_capacity))
+                    ){
+                        if (result_pseudo_index_in_bucket > -1){
+                            m_ptr = *m_bucket_ptr + result_pseudo_index_in_bucket;
+                            m_pseudo_cell_index = -1;
+                        } 
+                        else{
+                            --m_bucket_ptr;
+                            if (
+                                (m_bucket_ptr >= m_buckets_ptr)
+                                    &&
+                                (m_bucket_ptr < (m_buckets_ptr + m_buckets_capacity))
+                            ){
+                                m_ptr = *m_bucket_ptr + (BucketSize + result_pseudo_index_in_bucket);
+                                m_pseudo_cell_index = -1;
+                            }
+                            else{
+                                m_pseudo_cell_index = (BucketSize + result_pseudo_index_in_bucket);
+                            }
+                        }
+                    }
+                    else{
+                        if (result_pseudo_index_in_bucket > -1){
+                             m_pseudo_cell_index = result_pseudo_index_in_bucket;
+                        } 
+                        else{
+                            --m_bucket_ptr;
+                            m_pseudo_cell_index = (BucketSize + result_pseudo_index_in_bucket);
+                        }
+                    }
+                }
             }
             return *this;
         }
@@ -803,7 +949,7 @@ public:
                 ++m_size;
                 return;
             }
-            else{ // the worst case – need reallocation
+            else{ // the worst case --> need reallocation
                 size_t old_buckets_capacity = (m_last_allocated_bucket_ptr - m_first_allocated_bucket_ptr + 1);
                 size_t new_buckets_capacity = old_buckets_capacity * 3;
                 
