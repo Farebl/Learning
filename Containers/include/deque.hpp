@@ -745,7 +745,7 @@ public:
     
 
     iterator insert(const_iterator pos, size_type count, const T& value){
-        if (count < 1) {return {pos.m_bucket_ptr, const_cast<T*>(pos.m_ptr)};}
+        if (count < 1) {return {pos.m_buckets_ptr, pos.m_buckets_capacity, pos.m_bucket_ptr, const_cast<T*>(pos.m_ptr)};}
 
         else if (m_buckets_ptr == nullptr){
             size_t count_of_needed_buckets = (count % BucketSize == 0) ? count/BucketSize : count/BucketSize + 1;
@@ -789,19 +789,24 @@ public:
                 throw; 
             }
         
+            m_buckets_capacity = count_of_needed_buckets;
+            
             m_first_allocated_bucket_ptr = m_buckets_ptr;
             m_last_allocated_bucket_ptr = m_buckets_ptr + count_of_needed_buckets - 1;
 
+            m_first.m_buckets_ptr = m_buckets_ptr;
+            m_first.m_buckets_capacity = m_buckets_capacity;
             m_first.m_bucket_ptr = m_first_allocated_bucket_ptr;
             m_first.m_ptr = *m_first.m_bucket_ptr;
             
+            m_last.m_buckets_ptr = m_buckets_ptr;
+            m_last.m_buckets_capacity = m_buckets_capacity;
             m_last.m_bucket_ptr = m_last_allocated_bucket_ptr;
             m_last.m_ptr = *m_last_allocated_bucket_ptr + j - 1; // after cycle of constructing elements, j is incremented by 1 more, than necessary (to stop cycle)
 
-            m_buckets_capacity = count_of_needed_buckets;
             m_size += count;
 
-            return {m_buckets_ptr, *m_buckets_ptr};
+            return {m_first};
         }
         else if (m_size == 0){ // m_first & m_last are centered in deque and pointing to the same position (call center_the_iterators_m_first_and_m_last_())
 
@@ -926,7 +931,7 @@ public:
                 }
             } // end else {...} -> shift to the beginning
         } // end of else (m_size != 0) {...}
-        return {pos.m_bucket_ptr, const_cast<T*>(pos.m_ptr)};
+        return {pos.m_buckets_ptr, pos.m_buckets_capacity, pos.m_bucket_ptr, const_cast<T*>(pos.m_ptr)};
     }
 
     
