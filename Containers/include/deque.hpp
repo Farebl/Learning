@@ -1,8 +1,10 @@
 #ifndef FAREBL_DEQUE_H
 #define FAREBL_DEQUE_H
 
+#include <algorithm>
 #include <memory>
 #include <limits>
+
 
 namespace Farebl{
 
@@ -108,7 +110,7 @@ private:
                                 &&
                             (m_bucket_ptr < (m_buckets_ptr + m_buckets_capacity))
                         ){
-                            m_ptr = *m_buckets_ptr + static_cast<difference_type>(BucketSize) - 1;
+                            m_ptr = *m_bucket_ptr + static_cast<difference_type>(BucketSize) - 1;
                         }
                         else{
                             m_ptr = nullptr;
@@ -127,7 +129,7 @@ private:
                                 &&
                             (m_bucket_ptr < (m_buckets_ptr + m_buckets_capacity))
                         ){
-                            m_ptr = *m_buckets_ptr + static_cast<difference_type>(BucketSize) - 1;
+                            m_ptr = *m_bucket_ptr + static_cast<difference_type>(BucketSize) - 1;
                             m_pseudo_cell_index = -1;
                         }
                         else{
@@ -775,7 +777,7 @@ public:
         if (count < 1) {return {pos.m_buckets_ptr, pos.m_buckets_capacity, pos.m_bucket_ptr, const_cast<T*>(pos.m_ptr)};}
 
         else if (m_buckets_ptr == nullptr){
-            size_t count_of_needed_buckets = (count % BucketSize == 0) ? count/BucketSize : count/BucketSize + 1;
+            size_t count_of_needed_buckets = (count % BucketSize == 0) ? count / BucketSize : (count / BucketSize) + 1;
 
             m_buckets_ptr = std::allocator_traits<AllocatorPtrOnBucket>::allocate(m_alloc_ptr_on_bucket, count_of_needed_buckets);
             size_t i = 0;
@@ -836,7 +838,6 @@ public:
             return {m_first};
         }
         else if (m_size == 0){ // m_first & m_last are centered in deque and pointing to the same position (call center_the_iterators_m_first_and_m_last_())
-
             size_t count_of_allocated_cells = (m_last_allocated_bucket_ptr - m_first_allocated_bucket_ptr + 1) * BucketSize;
             if (count_of_allocated_cells >= count){
                 size_t new_pos_for_m_first = (count_of_allocated_cells - count) / 2;
@@ -847,7 +848,7 @@ public:
                 m_first += new_pos_for_m_first;
                 m_last = m_first;
                 size_t successful_constructed_count = 0;
-                try{
+                try{ //strong exception safety
                     while(successful_constructed_count < count){
                         std::allocator_traits<Allocator>::construct(m_alloc, m_last.m_ptr, value);
                         ++m_last;
@@ -872,8 +873,116 @@ public:
             else { // we need to allocate additional buckets
                 size_t possible_count_of_cells = m_buckets_capacity * BucketSize;
                 if (possible_count_of_cells >= count){
-                    // allocating additional buckets
-                    // constructing elements
+                    size_t total_count_of_needed_buckets = ((count % BucketSize == 0) ? (count / BucketSize) : ((count / BucketSize) + 1));
+                    size_t start_index = (m_buckets_capacity - total_count_of_needed_buckets) / 2;
+                /*  
+                    start_index --> the position in the outer array from which bucket allocation should begin, so that after all the 
+                    required buckets are allocated from both edges of the deck, there remains (approximately) equal unallocated space
+                */
+                    size_t count_of_lack_buckets = total_count_of_needed_buckets - ((m_last_allocated_bucket_ptr - m_first_allocated_bucket_ptr) + 1); 
+                    size_t count_of_successful_allocated_buckets = 0;
+                    
+                    T** begin_bound_ptr = m_buckets_ptr + start_index;
+                    T** current_new_bucket_ptr = m_first_allocated_bucket_ptr - 1;
+                    // cuurent_new_backet_ptr will bw stepping from (m_first_allocated_bucets_ptr - 1) to begin_bound_ptr
+
+                    try{ //strong exception guarantee
+                        while (current_new_bucket_ptr >= begin_bound_ptr && count_of_successful_allocated_buckets < count_of_lack_buckets){
+                            *current_new_bucket_ptr = std::allocator_traits<Allocator>::allocate(m_alloc, BucketSize);
+                            --current_new_bucket_ptr;
+                            ++count_of_successful_allocated_buckets;
+                        }
+                        begin_bound_ptr = current_new_bucket_ptr + 1;
+                    /*
+                        why we need to update bwgin_bound?
+                        
+                        in some cases, distance between (m_first_allocated_bucket_ptr) and (begin_bound) can be more then (count_of_lack_buckets),
+                        and then, (current_new_bucket_ptr) won`t reach begin_bount -> begin_bount may will be unallocated;
+                        Further, begin_bound is use instead of (m_first_allocated_bucket_ptr) as the first allocated bucket. 
+                    */
+                        
+                        if (count_of_successful_allocated_buckets < count_of_lack_buckets){
+                            current_new_bucket_ptr = m_last_allocated_bucket_ptr + 1;
+                        }
+                        else{
+                            current_new_bucket_ptr = begin_bound_ptr;
+                        }
+                        while(count_of_successful_allocated_buckets < count_of_lack_buckets){
+                        // in the th cycle, (count_of_successful_allocated_buckets) will never go outside the outer array 
+                            *current_new_bucket_ptr = std::allocator_traits<Allocator>::allocate(m_alloc, BucketSize);
+                            ++current_new_bucket_ptr;
+                            ++count_of_successful_allocated_buckets;
+                        }
+                    } 
+                    catch(...){
+                        if (current_new_bucket_ptr > m_last_allocated_bucket_ptr){
+                            --current_new_bucket_ptr;
+                            while(current_new_bucket_ptr != m_last_allocated_bucket_ptr){ 
+                            // in the th cycle, (count_of_successful_allocated_buckets) will never reach 0
+                                std::allocator_traits<Allocator>::deallocate(m_alloc, *current_new_bucket_ptr, BucketSize);
+                                --current_new_bucket_ptr;
+                                --count_of_successful_allocated_buckets;
+                            }
+                        }
+                        m_last_allocated_bucket_ptr = m_first_allocated_bucket_ptr - 1;
+                        while(count_of_successful_allocated_buckets != 0){                  
+                            std::allocator_traits<Allocator>::deallocate(m_alloc, *current_new_bucket_ptr, BucketSize);
+                            --current_new_bucket_ptr;
+                            --count_of_successful_allocated_buckets;
+                        }
+                        throw;
+                    }
+                   
+                    // constructing element
+                    iterator current_it{m_buckets_ptr, m_buckets_capacity, begin_bound_ptr, *begin_bound_ptr};
+                    size_t successful_constructed_count = 0;
+                    try{ //strong exception safety
+                        while(successful_constructed_count < count){
+                            std::allocator_traits<Allocator>::construct(m_alloc, current_it.m_ptr, value);
+                            ++current_it;
+                            ++successful_constructed_count;
+                        }
+                        //now m_last is equal to end(), that's why:
+                        --current_it;
+                    }
+                    catch(...){
+                        --current_it;
+                        while(successful_constructed_count > 0){
+                            std::allocator_traits<Allocator>::destroy(m_alloc, current_it.m_ptr);
+                            --current_it;
+                            --successful_constructed_count;
+                        }
+                        
+                        // free new allocated needed buckets;
+                        if (current_new_bucket_ptr > m_last_allocated_bucket_ptr){
+                            --current_new_bucket_ptr;
+                            while(current_new_bucket_ptr != m_last_allocated_bucket_ptr){ 
+                            // in the th cycle, (count_of_successful_allocated_buckets) will never reach 0
+                                std::allocator_traits<Allocator>::deallocate(m_alloc, *current_new_bucket_ptr, BucketSize);
+                                --current_new_bucket_ptr;
+                                --count_of_successful_allocated_buckets;
+                            }
+                        }
+                        current_new_bucket_ptr = m_first_allocated_bucket_ptr - 1;
+                        while(count_of_successful_allocated_buckets > 0){ 
+                            std::allocator_traits<Allocator>::deallocate(m_alloc, *current_new_bucket_ptr, BucketSize);
+                            --current_new_bucket_ptr;
+                            --count_of_successful_allocated_buckets;
+                        } 
+                        throw;
+                    }
+                    
+                    m_first.m_bucket_ptr = begin_bound_ptr;
+                    m_first.m_ptr = *m_first.m_bucket_ptr;
+                    
+                    m_last = current_it;
+
+                    m_first_allocated_bucket_ptr = m_buckets_ptr + start_index;
+                    m_last_allocated_bucket_ptr = current_new_bucket_ptr - 1;
+                    
+                    m_size += count;
+                    
+                    return m_first; 
                 }
                 else{
                     // realloc outer array
