@@ -108,7 +108,7 @@ private:
                                 &&
                             (m_bucket_ptr < (m_buckets_ptr + m_buckets_capacity))
                         ){
-                            m_ptr = *m_buckets_ptr + static_cast<difference_type>(BucketSize) - 1;
+                            m_ptr = *m_bucket_ptr + static_cast<difference_type>(BucketSize) - 1;
                         }
                         else{
                             m_ptr = nullptr;
@@ -127,7 +127,7 @@ private:
                                 &&
                             (m_bucket_ptr < (m_buckets_ptr + m_buckets_capacity))
                         ){
-                            m_ptr = *m_buckets_ptr + static_cast<difference_type>(BucketSize) - 1;
+                            m_ptr = *m_bucket_ptr + static_cast<difference_type>(BucketSize) - 1;
                             m_pseudo_cell_index = -1;
                         }
                         else{
