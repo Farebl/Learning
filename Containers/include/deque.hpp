@@ -475,69 +475,88 @@ private:
     }
 
     struct NewPtrsAndCapAfterRealloc{
-        T** new_buckets_ptr; 
-        T** new_first_allocated_bucket_ptr;
-        T** new_last_allocated_bucket_ptr;
-        T** border_ptr_between_old_and_new_buckets;
-        size_t new_buckets_capacity;
+        T** new_m_buckets_ptr; 
+        T** new_m_first_allocated_bucket_ptr;
+        T** new_m_last_allocated_bucket_ptr;
+        iterator new_m_first;
+        iterator new_m_last;
+        size_t new_m_buckets_capacity;
     };
 
     NewPtrsAndCapAfterRealloc realloc_with_add_allocated_buckets_to_end(size_t count_of_buckets){
         NewPtrsAndCapAfterRealloc result;
 
         if(!m_buckets_ptr){
-            result.new_buckets_capacity = count_of_buckets;
-            result.new_buckets_ptr = std::allocator_traits<AllocatorPtrOnBucket>::allocate(m_alloc_ptr_on_bucket, result.new_buckets_capacity);
+            result.new_m_buckets_capacity = count_of_buckets;
+            result.new_m_buckets_ptr = std::allocator_traits<AllocatorPtrOnBucket>::allocate(m_alloc_ptr_on_bucket, result.new_m_buckets_capacity);
             
-            result.border_ptr_between_old_and_new_buckets = result.new_buckets_ptr;
-            result.new_first_allocated_bucket_ptr = result.border_ptr_between_old_and_new_buckets;
-            result.new_last_allocated_bucket_ptr = result.new_first_allocated_bucket_ptr;
+            result.new_m_first_allocated_bucket_ptr = result.new_m_buckets_ptr;
+            result.new_m_last_allocated_bucket_ptr = result.new_m_first_allocated_bucket_ptr;
             
             try{
-                for (size_t successful_allocated_buckets = 0; successful_allocated_buckets < count_of_buckets; ++successful_allocated_buckets, ++result.new_last_allocated_bucket_ptr){
-                    *result.new_last_allocated_bucket_ptr = std::allocator_traits<Allocator>::allocate(m_alloc, BucketSize);
+                for (size_t successful_allocated_buckets = 0; successful_allocated_buckets < count_of_buckets; ++successful_allocated_buckets, ++result.new_m_last_allocated_bucket_ptr){
+                    *result.new_m_last_allocated_bucket_ptr = std::allocator_traits<Allocator>::allocate(m_alloc, BucketSize);
                 }
-                --result.new_last_allocated_bucket_ptr;
+                --result.new_m_last_allocated_bucket_ptr;
             }
             catch(...){
-                --result.new_last_allocated_bucket_ptr;
-                T** end_pos = result.border_ptr_between_old_and_new_buckets - 1;
-                while(result.new_last_allocated_bucket_ptr != end_pos){
-                    std::allocator_traits<Allocator>::deallocate(m_alloc, *result.new_last_allocated_bucket_ptr, BucketSize);
+                --result.new_m_last_allocated_bucket_ptr;
+                T** end_pos = result.new_m_buckets_ptr - 1;
+                while(result.new_m_last_allocated_bucket_ptr != end_pos){
+                    std::allocator_traits<Allocator>::deallocate(m_alloc, *result.new_m_last_allocated_bucket_ptr, BucketSize);
                 }
                 throw;
             }
+            result.new_m_first.m_buckets_ptr = result.new_m_buckets_ptr;
+            result.new_m_first.m_buckets_capacity = result.new_m_buckets_capacity;
+            result.new_m_first.m_bucket_ptr = result.new_m_first_allocated_bucket_ptr;
+            result.new_m_first.m_ptr = *result.new_m_first.m_bucket_ptr;
+
+            result.new_m_last = result.new_m_first;
         }
         else{
         
             size_t old_buckets_capacity = m_last_allocated_bucket_ptr - m_first_allocated_bucket_ptr + 1;
-            result.new_buckets_capacity = (old_buckets_capacity * 3) + count_of_buckets;
+            result.new_m_buckets_capacity = (old_buckets_capacity * 3) + count_of_buckets;
             
-            result.new_buckets_ptr = std::allocator_traits<AllocatorPtrOnBucket>::allocate(m_alloc_ptr_on_bucket, result.new_buckets_capacity);
+            result.new_m_buckets_ptr = std::allocator_traits<AllocatorPtrOnBucket>::allocate(m_alloc_ptr_on_bucket, result.new_m_buckets_capacity);
             
-            result.new_last_allocated_bucket_ptr = result.new_buckets_ptr + (old_buckets_capacity * 2); 
-            result.border_ptr_between_old_and_new_buckets = result.new_last_allocated_bucket_ptr;
+            result.new_m_last_allocated_bucket_ptr = result.new_m_buckets_ptr + (old_buckets_capacity * 2); 
+            size_t successful_allocated_buckets = 0;
             try{
-                for (size_t successful_allocated_buckets = 0; successful_allocated_buckets < count_of_buckets; ++successful_allocated_buckets, ++result.new_last_allocated_bucket_ptr){
-                    *result.new_last_allocated_bucket_ptr = std::allocator_traits<Allocator>::allocate(m_alloc, BucketSize);
+                for (; successful_allocated_buckets < count_of_buckets; ++successful_allocated_buckets, ++result.new_m_last_allocated_bucket_ptr){
+                    *result.new_m_last_allocated_bucket_ptr = std::allocator_traits<Allocator>::allocate(m_alloc, BucketSize);
                 }
-                --result.new_last_allocated_bucket_ptr;
+                --result.new_m_last_allocated_bucket_ptr;
             }
             catch(...){
-                --result.new_last_allocated_bucket_ptr;
-                T** end_pos = result.border_ptr_between_old_and_new_buckets - 1;
-                while(result.new_last_allocated_bucket_ptr != end_pos){
-                    std::allocator_traits<Allocator>::deallocate(m_alloc, *result.new_last_allocated_bucket_ptr, BucketSize);
+                --result.new_m_last_allocated_bucket_ptr;
+                
+                while(successful_allocated_buckets > 0){
+                    std::allocator_traits<Allocator>::deallocate(m_alloc, *result.new_m_last_allocated_bucket_ptr, BucketSize);
+                    --successful_allocated_buckets;
                 }
                 throw;
             }
 
             T** old_buckets_pos = m_last_allocated_bucket_ptr;
-            result.new_first_allocated_bucket_ptr = result.border_ptr_between_old_and_new_buckets - 1; 
-            for (T** end_pos = m_first_allocated_bucket_ptr - 1; old_buckets_pos != end_pos; --old_buckets_pos, --result.new_first_allocated_bucket_ptr){
-                *result.new_first_allocated_bucket_ptr = *old_buckets_pos;
+            result.new_m_first_allocated_bucket_ptr = result.new_m_last_allocated_bucket_ptr - count_of_buckets; 
+            for (T** end_pos = m_first_allocated_bucket_ptr - 1; old_buckets_pos != end_pos; --old_buckets_pos, --result.new_m_first_allocated_bucket_ptr){
+                *result.new_m_first_allocated_bucket_ptr = *old_buckets_pos;
             }
-            ++result.new_first_allocated_bucket_ptr;
+            ++result.new_m_first_allocated_bucket_ptr;
+                       
+
+
+            result.new_m_first.m_buckets_ptr = result.new_m_buckets_ptr;
+            result.new_m_first.m_buckets_capacity = result.new_m_buckets_capacity;
+            result.new_m_first.m_bucket_ptr = result.new_m_first_allocated_bucket_ptr + (m_first.m_bucket_ptr - m_first_allocated_bucket_ptr);
+            result.new_m_first.m_ptr = m_first.m_ptr;       
+
+            result.new_m_last.m_buckets_ptr = result.new_m_buckets_ptr;
+            result.new_m_last.m_buckets_capacity = result.new_m_buckets_capacity;
+            result.new_m_last.m_bucket_ptr = result.new_m_last_allocated_bucket_ptr - count_of_buckets - (m_last_allocated_bucket_ptr - m_last.m_bucket_ptr);
+            result.new_m_last.m_ptr = m_last.m_ptr;
         }
         return result;
     }
@@ -961,18 +980,18 @@ public:
             auto result_of_realloc = realloc_with_add_allocated_buckets_to_end(1); 
              
             try{
-                std::allocator_traits<Allocator>::construct(m_alloc, *result_of_realloc.border_ptr_between_old_and_new_buckets, value);
+                std::allocator_traits<Allocator>::construct(m_alloc, result_of_realloc.new_m_last.m_ptr, value);
             }
             catch(...){
-                std::allocator_traits<Allocator>::deallocate(m_alloc, *result_of_realloc.border_ptr_between_old_and_new_buckets, BucketSize);
-                std::allocator_traits<AllocatorPtrOnBucket>::deallocate(m_alloc_ptr_on_bucket, result_of_realloc.new_buckets_ptr, result_of_realloc.new_buckets_capacity);
+                std::allocator_traits<Allocator>::deallocate(m_alloc, *result_of_realloc.new_m_last.m_bucket_ptr, BucketSize);
+                std::allocator_traits<AllocatorPtrOnBucket>::deallocate(m_alloc_ptr_on_bucket, result_of_realloc.new_m_buckets_ptr, result_of_realloc.new_m_buckets_capacity);
                 throw;
             }
-            m_buckets_ptr = result_of_realloc.new_buckets_ptr;
-            m_buckets_capacity = result_of_realloc.new_buckets_capacity;
+            m_buckets_ptr = result_of_realloc.new_m_buckets_ptr;
+            m_buckets_capacity = result_of_realloc.new_m_buckets_capacity;
 
-            m_first_allocated_bucket_ptr = result_of_realloc.new_first_allocated_bucket_ptr;
-            m_last_allocated_bucket_ptr  = result_of_realloc.new_last_allocated_bucket_ptr;
+            m_first_allocated_bucket_ptr = result_of_realloc.new_m_first_allocated_bucket_ptr;
+            m_last_allocated_bucket_ptr  = result_of_realloc.new_m_last_allocated_bucket_ptr;
 
 
             m_first.m_buckets_ptr = m_buckets_ptr;
@@ -1022,32 +1041,26 @@ public:
             }
             else{ // the worst case --> need reallocation
                 auto result_of_realloc = realloc_with_add_allocated_buckets_to_end(1); 
-                //(.new_last_old_bucket_ptr) points to the first new-allocated bucket
+                ++result_of_realloc.new_m_last;
                 try{
-                    std::allocator_traits<Allocator>::construct(m_alloc, *result_of_realloc.border_ptr_between_old_and_new_buckets, value);
+                    std::allocator_traits<Allocator>::construct(m_alloc, result_of_realloc.new_m_last.m_ptr, value);
                 }
                 catch(...){
-                    std::allocator_traits<Allocator>::deallocate(m_alloc, *result_of_realloc.border_ptr_between_old_and_new_buckets, BucketSize);
-                    std::allocator_traits<AllocatorPtrOnBucket>::deallocate(m_alloc_ptr_on_bucket, result_of_realloc.new_buckets_ptr, result_of_realloc.new_buckets_capacity);
+                    std::allocator_traits<Allocator>::deallocate(m_alloc, *result_of_realloc.new_m_last.m_bucket_ptr, BucketSize);
+                    std::allocator_traits<AllocatorPtrOnBucket>::deallocate(m_alloc_ptr_on_bucket, result_of_realloc.new_m_buckets_ptr, result_of_realloc.new_m_buckets_capacity);
                     throw;
                 }
-                
+            
 
-                m_first.m_buckets_ptr = result_of_realloc.new_buckets_ptr;
-                m_first.m_buckets_capacity = result_of_realloc.new_buckets_capacity;
-                m_first.m_bucket_ptr = result_of_realloc.new_first_allocated_bucket_ptr + (m_first.m_bucket_ptr - m_first_allocated_bucket_ptr);
+                m_first = result_of_realloc.new_m_first;
+                m_last  = result_of_realloc.new_m_last;
                 
-                m_last.m_buckets_ptr = result_of_realloc.new_buckets_ptr;
-                m_last.m_buckets_capacity = result_of_realloc.new_buckets_capacity;
-                m_last.m_bucket_ptr = result_of_realloc.border_ptr_between_old_and_new_buckets;
-                m_last.m_ptr = *m_last.m_bucket_ptr;
-                
-                m_first_allocated_bucket_ptr = result_of_realloc.new_first_allocated_bucket_ptr;
-                m_last_allocated_bucket_ptr = result_of_realloc.new_last_allocated_bucket_ptr;
+                m_first_allocated_bucket_ptr = result_of_realloc.new_m_first_allocated_bucket_ptr;
+                m_last_allocated_bucket_ptr = result_of_realloc.new_m_last_allocated_bucket_ptr;
                 
                 std::allocator_traits<AllocatorPtrOnBucket>::deallocate(m_alloc_ptr_on_bucket, m_buckets_ptr, m_buckets_capacity);
-                m_buckets_ptr = result_of_realloc.new_buckets_ptr;
-                m_buckets_capacity = result_of_realloc.new_buckets_capacity;
+                m_buckets_ptr = result_of_realloc.new_m_buckets_ptr;
+                m_buckets_capacity = result_of_realloc.new_m_buckets_capacity;
                 ++m_size;
                 return;
             }    
