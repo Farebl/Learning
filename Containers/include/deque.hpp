@@ -37,6 +37,13 @@ private:
     */
         T** m_bucket_ptr;
         pointer m_ptr;
+        base_iterator():
+            m_buckets_ptr(nullptr), 
+            m_buckets_capacity(0),
+            m_pseudo_cell_index(-1),
+            m_bucket_ptr(nullptr), 
+            m_ptr(nullptr){}
+
         base_iterator(T** buckets_ptr, size_t buckets_capacity, T** bucket_ptr, pointer ptr):  
             m_buckets_ptr(buckets_ptr), 
             m_buckets_capacity(buckets_capacity),
