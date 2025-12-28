@@ -495,7 +495,7 @@ private:
             result.new_m_first_allocated_bucket_ptr = result.new_m_buckets_ptr;
             result.new_m_last_allocated_bucket_ptr = result.new_m_first_allocated_bucket_ptr;
             
-            try{
+            try{ //strong exception safety
                 for (size_t successful_allocated_buckets = 0; successful_allocated_buckets < count_of_buckets; ++successful_allocated_buckets, ++result.new_m_last_allocated_bucket_ptr){
                     *result.new_m_last_allocated_bucket_ptr = std::allocator_traits<Allocator>::allocate(m_alloc, BucketSize);
                 }
@@ -525,7 +525,7 @@ private:
             
             result.new_m_last_allocated_bucket_ptr = result.new_m_buckets_ptr + (old_buckets_capacity * 2); 
             size_t successful_allocated_buckets = 0;
-            try{
+            try{ //strong exception safety
                 for (; successful_allocated_buckets < count_of_buckets; ++successful_allocated_buckets, ++result.new_m_last_allocated_bucket_ptr){
                     *result.new_m_last_allocated_bucket_ptr = std::allocator_traits<Allocator>::allocate(m_alloc, BucketSize);
                 }
@@ -730,7 +730,7 @@ public:
         
         T** new_buckets_ptr = std::allocator_traits<AllocatorPtrOnBucket>::allocate(m_alloc_ptr_on_bucket, new_buckets_capacity);
         decltype(new_buckets_capacity) success_allocated_count = 0;
-        try{
+        try{ //strong exception safety
             for (; success_allocated_count < new_buckets_capacity; ++success_allocated_count){
                 new_buckets_ptr[success_allocated_count] = std::allocator_traits<Allocator>::allocate(m_alloc, BucketSize);
             }
@@ -746,7 +746,7 @@ public:
         iterator current_deque_it = m_first;
         iterator new_deque_it(new_buckets_ptr, new_buckets_capacity, new_buckets_ptr, *new_buckets_ptr);
         iterator end_pos = end();
-        try{
+        try{ //strong exception safety
             while(current_deque_it != end_pos){
                 std::allocator_traits<Allocator>::construct(m_alloc, new_deque_it.m_ptr, std::move_if_noexcept(*current_deque_it));
             }
@@ -1011,6 +1011,7 @@ public:
                     return m_first; 
                 }
                 else{
+
                     // realloc outer array
                     // allocating additional buckets
                     // constructing elements
@@ -1276,7 +1277,7 @@ public:
         if (!m_buckets_ptr){
             auto result_of_realloc = realloc_with_add_allocated_buckets_to_end(1); 
              
-            try{
+            try{ //strong exception safety
                 std::allocator_traits<Allocator>::construct(m_alloc, result_of_realloc.new_m_last.m_ptr, value);
             }
             catch(...){
@@ -1323,7 +1324,7 @@ public:
                 }
                 else{
                     *(m_last_allocated_bucket_ptr + 1) = std::allocator_traits<Allocator>::allocate(m_alloc, BucketSize);
-                    try{
+                    try{ //strong exception safety
                         std::allocator_traits<Allocator>::construct(m_alloc, *(m_last_allocated_bucket_ptr + 1), value);
                     }
                     catch(...){
@@ -1339,7 +1340,7 @@ public:
             else{ // the worst case --> need reallocation
                 auto result_of_realloc = realloc_with_add_allocated_buckets_to_end(1); 
                 ++result_of_realloc.new_m_last;
-                try{
+                try{ //strong exception safety
                     std::allocator_traits<Allocator>::construct(m_alloc, result_of_realloc.new_m_last.m_ptr, value);
                 }
                 catch(...){
@@ -1348,7 +1349,6 @@ public:
                     throw;
                 }
             
-
                 m_first = result_of_realloc.new_m_first;
                 m_last  = result_of_realloc.new_m_last;
                 
