@@ -485,7 +485,6 @@ private:
 
     NewPtrsAndCapAfterRealloc realloc_with_add_allocated_buckets_to_end(size_t count_of_buckets){
         NewPtrsAndCapAfterRealloc result;
-
         if(!m_buckets_ptr){
             result.new_m_buckets_capacity = count_of_buckets;
             result.new_m_buckets_ptr = std::allocator_traits<AllocatorPtrOnBucket>::allocate(m_alloc_ptr_on_bucket, result.new_m_buckets_capacity);
@@ -504,6 +503,7 @@ private:
                 T** end_pos = result.new_m_buckets_ptr - 1;
                 while(result.new_m_last_allocated_bucket_ptr != end_pos){
                     std::allocator_traits<Allocator>::deallocate(m_alloc, *result.new_m_last_allocated_bucket_ptr, BucketSize);
+                    --result.new_m_last_allocated_bucket_ptr;
                 }
                 throw;
             }
@@ -515,13 +515,13 @@ private:
             result.new_m_last = result.new_m_first;
         }
         else{
-        
-            size_t old_buckets_capacity = m_last_allocated_bucket_ptr - m_first_allocated_bucket_ptr + 1;
-            result.new_m_buckets_capacity = (old_buckets_capacity * 3) + count_of_buckets;
+            size_t capacity_from_begin_to_first_allocated_bucket = m_first.m_bucket_ptr - m_buckets_ptr;
+            size_t count_of_used_buckets = m_last.m_bucket_ptr - m_first.m_bucket_ptr + 1;
+            result.new_m_buckets_capacity = capacity_from_begin_to_first_allocated_bucket + (count_of_used_buckets * 2) + count_of_buckets;
             
             result.new_m_buckets_ptr = std::allocator_traits<AllocatorPtrOnBucket>::allocate(m_alloc_ptr_on_bucket, result.new_m_buckets_capacity);
             
-            result.new_m_last_allocated_bucket_ptr = result.new_m_buckets_ptr + (old_buckets_capacity * 2); 
+            result.new_m_last_allocated_bucket_ptr = result.new_m_buckets_ptr + capacity_from_begin_to_first_allocated_bucket + count_of_used_buckets; 
             size_t successful_allocated_buckets = 0;
             try{
                 for (; successful_allocated_buckets < count_of_buckets; ++successful_allocated_buckets, ++result.new_m_last_allocated_bucket_ptr){
@@ -531,9 +531,9 @@ private:
             }
             catch(...){
                 --result.new_m_last_allocated_bucket_ptr;
-                
                 while(successful_allocated_buckets > 0){
                     std::allocator_traits<Allocator>::deallocate(m_alloc, *result.new_m_last_allocated_bucket_ptr, BucketSize);
+                    --result.new_m_last_allocated_bucket_ptr;
                     --successful_allocated_buckets;
                 }
                 throw;
@@ -546,8 +546,6 @@ private:
             }
             ++result.new_m_first_allocated_bucket_ptr;
                        
-
-
             result.new_m_first.m_buckets_ptr = result.new_m_buckets_ptr;
             result.new_m_first.m_buckets_capacity = result.new_m_buckets_capacity;
             result.new_m_first.m_bucket_ptr = result.new_m_first_allocated_bucket_ptr + (m_first.m_bucket_ptr - m_first_allocated_bucket_ptr);
