@@ -485,7 +485,7 @@ private:
         size_t new_m_buckets_capacity;
     };
 
-    NewPtrsAndCapAfterRealloc realloc_with_add_allocated_buckets_to_end(size_t count_of_buckets){
+    NewPtrsAndCapAfterRealloc realloc_with_add_allocated_buckets_to_end(size_t count_of_buckets, bool to_reserve_in_end){
         NewPtrsAndCapAfterRealloc result;
         if(!m_buckets_ptr){
             result.new_m_buckets_capacity = count_of_buckets;
@@ -517,13 +517,16 @@ private:
             result.new_m_last = result.new_m_first;
         }
         else{
-            size_t capacity_from_begin_to_first_allocated_bucket = m_first.m_bucket_ptr - m_buckets_ptr;
-            size_t count_of_used_buckets = m_last.m_bucket_ptr - m_first.m_bucket_ptr + 1;
-            result.new_m_buckets_capacity = capacity_from_begin_to_first_allocated_bucket + (count_of_used_buckets * 2) + count_of_buckets;
+            size_t old_count_of_allocated_buckets = m_last_allocated_bucket_ptr - m_first_allocated_bucket_ptr + 1;
+            size_t using_allocated_buckets = m_last.m_bucket_ptr - m_first.m_bucket_ptr + 1;
+            result.new_m_buckets_capacity = old_count_of_allocated_buckets + count_of_buckets;
+            if (to_reserve_in_end) { 
+                result.new_m_buckets_capacity += (using_allocated_buckets / 2); 
+            }
+
+            result.new_m_buckets_ptr = std::allocator_traits<AllocatorPtrOnBucket>::allocate(m_alloc_ptr_on_bucket, result.new_m_buckets_capacity);            
             
-            result.new_m_buckets_ptr = std::allocator_traits<AllocatorPtrOnBucket>::allocate(m_alloc_ptr_on_bucket, result.new_m_buckets_capacity);
-            
-            result.new_m_last_allocated_bucket_ptr = result.new_m_buckets_ptr + capacity_from_begin_to_first_allocated_bucket + count_of_used_buckets; 
+            result.new_m_last_allocated_bucket_ptr = result.new_m_buckets_ptr + old_count_of_allocated_buckets;
             size_t successful_allocated_buckets = 0;
             try{ //strong exception safety
                 for (; successful_allocated_buckets < count_of_buckets; ++successful_allocated_buckets, ++result.new_m_last_allocated_bucket_ptr){
@@ -1279,7 +1282,7 @@ public:
 
     void push_back( const T& value ){ 
         if (!m_buckets_ptr){
-            auto result_of_realloc = realloc_with_add_allocated_buckets_to_end(1); 
+            auto result_of_realloc = realloc_with_add_allocated_buckets_to_end(1, true); 
              
             try{ //strong exception safety
                 std::allocator_traits<Allocator>::construct(m_alloc, result_of_realloc.new_m_last.m_ptr, value);
@@ -1342,7 +1345,7 @@ public:
                 return;
             }
             else{ // the worst case --> need reallocation
-                auto result_of_realloc = realloc_with_add_allocated_buckets_to_end(1); 
+                auto result_of_realloc = realloc_with_add_allocated_buckets_to_end(1, true); 
                 ++result_of_realloc.new_m_last;
                 try{ //strong exception safety
                     std::allocator_traits<Allocator>::construct(m_alloc, result_of_realloc.new_m_last.m_ptr, value);
