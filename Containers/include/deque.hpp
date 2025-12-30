@@ -1067,8 +1067,34 @@ public:
                     ((*m_last.m_bucket_ptr + BucketSize - 1) - m_last.m_ptr);
 
                 if (count_of_allocated_cells_from_m_last >= count){
-                    // shift old elements
-                    // constructing new elements
+                    size_t reminder = count - (m_last - pos) - 1;
+                    iterator current_it = m_last + 1;
+                    try{ // strong exception safety
+                        while(reminder > 0){
+                            std::allocator_traits<Allocator>::construct(m_alloc, current_it.m_ptr, value);
+                            ++current_it;
+                            --reminder;    
+                        }
+                        T* end_pos_ptr = (m_last + 1).m_ptr;
+                        iterator second_current_it {pos.m_buckets_ptr, pos.m_buckets_capacity, pos.m_bucket_ptr, const_cast<T*>(pos.m_ptr)};
+                        while (second_current_it.m_ptr != end_pos_ptr){
+                            std::allocator_traits<Allocator>::construct(m_alloc, current_it.m_ptr, std::move(*second_current_it.m_ptr));
+                            *second_current_it.m_ptr = value;
+                            ++current_it;
+                        }
+                        --current_it;
+                    }
+                    catch(...){
+                        --current_it;
+                        while(current_it != m_last){
+                            std::allocator_traits<Allocator>::destroy(m_alloc, current_it.m_ptr);
+                            --current_it;
+                        }
+                        throw;
+                    }
+                    m_size += count;
+                    m_last = current_it; 
+                    return {pos.m_buckets_ptr, pos.m_buckets_capacity, pos.m_bucket_ptr, const_cast<T*>(pos.m_ptr)};
                 }
                 else { // lack of allocated cells in the end side. Let's try moving empty allocated backets from the beginning to the end.
                     size_t count_of_lacking_cells = count - count_of_allocated_cells_from_m_last; 
