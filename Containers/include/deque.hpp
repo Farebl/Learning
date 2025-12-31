@@ -1064,65 +1064,139 @@ public:
             if (m_last - pos <= pos - m_first){ 
             // shift elements to the end side
 
-                size_t count_of_allocated_cells_from_m_last = 
+                size_t count_of_free_allocated_cells_in_end = 
                     ((m_last_allocated_bucket_ptr - m_last.m_bucket_ptr) * BucketSize)
                     +
                     ((*m_last.m_bucket_ptr + BucketSize - 1) - m_last.m_ptr);
 
-                if (count_of_allocated_cells_from_m_last >= count){
-                    size_t reminder = count - (m_last - pos) - 1;
-                    iterator current_it = m_last + 1;
-                    try{ // strong exception safety
-                        while(reminder > 0){
-                            std::allocator_traits<Allocator>::construct(m_alloc, current_it.m_ptr, value);
-                            ++current_it;
-                            --reminder;    
-                        }
-                        T* end_pos_ptr = (m_last + 1).m_ptr;
-                        iterator second_current_it {pos.m_buckets_ptr, pos.m_buckets_capacity, pos.m_bucket_ptr, const_cast<T*>(pos.m_ptr)};
-                        while (second_current_it.m_ptr != end_pos_ptr){
-                            std::allocator_traits<Allocator>::construct(m_alloc, current_it.m_ptr, std::move(*second_current_it.m_ptr));
-                            *second_current_it.m_ptr = value;
-                            ++current_it;
-                        }
-                        --current_it;
+                bool allocating_additional_buckets_without_realloc = false;
+                T** new_m_last_allocated_bucket_ptr = m_last_allocated_bucket_ptr;
+
+
+                if (count_of_free_allocated_cells_in_end < count){
+                    allocating_additional_buckets_without_realloc = true;
+
+                    size_t count_of_needed_additional_cells = (count - count_of_free_allocated_cells_in_end);
+                    size_t count_of_lack_buckets = count_of_needed_additional_cells / BucketSize;
+                    if((count_of_needed_additional_cells % BucketSize) != 0){
+                        ++count_of_lack_buckets;
                     }
-                    catch(...){
-                        --current_it;
-                        while(current_it != m_last){
-                            std::allocator_traits<Allocator>::destroy(m_alloc, current_it.m_ptr);
+
+                    size_t count_of_free_places_for_buckets_in_the_end = (m_buckets_ptr + m_buckets_capacity - 1) - m_last_allocated_bucket_ptr;
+                    if (count_of_free_places_for_buckets_in_the_end >= count_of_lack_buckets){
+                        new_m_last_allocated_bucket_ptr = m_last_allocated_bucket_ptr + 1;
+                        try{
+                            while(count_of_lack_buckets > 0){
+                                *new_m_last_allocated_bucket_ptr = std::allocator_traits<Allocator>::allocate(m_alloc, BucketSize);
+                                ++new_m_last_allocated_bucket_ptr;
+                                --count_of_lack_buckets;
+                            }
+                            --new_m_last_allocated_bucket_ptr;
+                        }   
+                        catch(...){
+                            --new_m_last_allocated_bucket_ptr;
+                            while(new_m_last_allocated_bucket_ptr != m_last_allocated_bucket_ptr){
+                                std::allocator_traits<Allocator>::deallocate(m_alloc, *new_m_last_allocated_bucket_ptr, BucketSize);
+                                --new_m_last_allocated_bucket_ptr; 
+                            }
+                            throw;
+                        }
+
+                        // shift old elements and constructing new elements are below
+                    }
+                    else{
+                        auto result_of_realloc = realloc_with_add_allocated_buckets_to_end(count_of_lack_buckets, false); 
+                        
+                        size_t reminder = count - (m_last - pos) - 1;
+                        iterator current_it = result_of_realloc.new_m_last + 1;
+                        
+
+                        try{ // basic exception safety
+                            while (reminder > 0){
+                                std::allocator_traits<Allocator>::construct(m_alloc, current_it.m_ptr, value);
+                                ++current_it; 
+                                --reminder; 
+                            }
+                            
+                            T* end_pos_ptr = (result_of_realloc.new_m_last + 1).m_ptr;
+                            iterator second_current_it = result_of_realloc.new_m_last - (m_last - pos);
+                            iterator first_inserted = second_current_it;
+                            while (second_current_it.m_ptr != end_pos_ptr){
+                                std::allocator_traits<Allocator>::construct(m_alloc, current_it.m_ptr, std::move(*second_current_it.m_ptr));
+                                *second_current_it.m_ptr = value;
+                                ++current_it; 
+                            }
                             --current_it;
+
+                            m_first = result_of_realloc.new_m_first;
+                            m_last = current_it; 
+
+                            m_first_allocated_bucket_ptr = result_of_realloc.new_m_first_allocated_bucket_ptr;
+                            m_last_allocated_bucket_ptr = result_of_realloc.new_m_last_allocated_bucket_ptr;
+
+                            std::allocator_traits<AllocatorPtrOnBucket>::deallocate(m_alloc_ptr_on_bucket, m_buckets_ptr, m_buckets_capacity);
+                            m_buckets_ptr = result_of_realloc.new_m_buckets_ptr;
+                            m_buckets_capacity = result_of_realloc.new_m_buckets_capacity;
+                            
+                            m_size += count;
+                            return first_inserted;
                         }
-                        throw;
+                        catch(...){
+                            --current_it;
+                            while(current_it != result_of_realloc.new_m_last){
+                                std::allocator_traits<Allocator>::destroy(m_alloc, current_it.m_ptr);
+                                --current_it;
+                            }
+                            while(*result_of_realloc.new_m_last_allocated_bucket_ptr != *m_last_allocated_bucket_ptr){ 
+                                std::allocator_traits<Allocator>::deallocate(m_alloc, *result_of_realloc.new_m_last_allocated_bucket_ptr, BucketSize);
+                                --result_of_realloc.new_m_last_allocated_bucket_ptr;
+                            } 
+                            std::allocator_traits<AllocatorPtrOnBucket>::deallocate(m_alloc_ptr_on_bucket, result_of_realloc.new_m_buckets_ptr, result_of_realloc.new_m_buckets_capacity);  
+                            throw;
+                        }
                     }
-                    m_size += count;
-                    m_last = current_it; 
-                    return {pos.m_buckets_ptr, pos.m_buckets_capacity, pos.m_bucket_ptr, const_cast<T*>(pos.m_ptr)};
+                } // end if(...){...} -> lack of allocated cells in the end side.
+                
+
+                // we have enough allocated cells without reallocation of outer array
+
+                size_t reminder = count - (m_last - pos) - 1;
+                iterator current_it = m_last + 1;
+                try{ // basic exception safety
+                    while(reminder > 0){
+                        std::allocator_traits<Allocator>::construct(m_alloc, current_it.m_ptr, value);
+                        ++current_it;
+                        --reminder;    
+                    }
+                    T* end_pos_ptr = (m_last + 1).m_ptr;
+                    iterator second_current_it {pos.m_buckets_ptr, pos.m_buckets_capacity, pos.m_bucket_ptr, const_cast<T*>(pos.m_ptr)};
+                    while (second_current_it.m_ptr != end_pos_ptr){
+                        std::allocator_traits<Allocator>::construct(m_alloc, current_it.m_ptr, std::move(*second_current_it.m_ptr));
+                        *second_current_it.m_ptr = value;
+                        ++current_it;
+                    }
+                    --current_it;
                 }
-                else { // lack of allocated cells in the end side. Let's try moving empty allocated backets from the beginning to the end.
-                    size_t count_of_lacking_cells = count - count_of_allocated_cells_from_m_last; 
-                    size_t count_of_free_allocated_buckets_in_the_beginning = m_first.m_bucket_ptr - m_first_allocated_bucket_ptr;
-                    
-                    if ((count_of_free_allocated_buckets_in_the_beginning * BucketSize) >= count_of_lacking_cells){
-                        // try to swap free alllocated buckets from the beginning to the end
-                        // shift old elements
-                        // constructing new elements
+                catch(...){
+                    --current_it;
+                    while(current_it != m_last){
+                        std::allocator_traits<Allocator>::destroy(m_alloc, current_it.m_ptr);
+                        --current_it;
                     }
-                    else{ // lack of allocated buckets -> we need to allocate new buckets
-                        size_t count_of_non_allocated_buckets_in_the_end = (m_buckets_ptr + m_buckets_capacity - 1) - m_last_allocated_bucket_ptr;
-                        if ((count_of_non_allocated_buckets_in_the_end * BucketSize) >= count_of_lacking_cells){
-                            // allocating lacking buckets 
-                            // shift old elements
-                            // constructing new elements
-                        }
-                        else{
-                            // reallocate outer array 
-                            // allocate lacking buckets 
-                            // shift old elements
-                            // constructing new elements
+                    if (allocating_additional_buckets_without_realloc){   
+                        while(new_m_last_allocated_bucket_ptr != m_last_allocated_bucket_ptr){
+                            std::allocator_traits<Allocator>::deallocate(m_alloc, *new_m_last_allocated_bucket_ptr, BucketSize);
+                            --new_m_last_allocated_bucket_ptr;
                         }
                     }
-                } // end else {...} -> lack of allocated cells in the end side.
+                    throw;
+                }
+
+                m_size += count;
+                m_last = current_it; 
+                m_last_allocated_bucket_ptr = new_m_last_allocated_bucket_ptr;
+
+                return {pos.m_buckets_ptr, pos.m_buckets_capacity, pos.m_bucket_ptr, const_cast<T*>(pos.m_ptr)};
             } 
             else { 
             // shift elements to the beginning side
