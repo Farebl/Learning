@@ -3,6 +3,7 @@
 
 #include <memory>
 #include <limits>
+#include <cmath>
 
 namespace Farebl{
 
@@ -157,7 +158,8 @@ private:
         
         
         base_iterator& operator+=(difference_type value) & {
-            if (value < 0) return *this -= value;
+            if (value < 0) {return *this -= std::abs(value);}
+
             if (m_buckets_ptr != nullptr){
                 if (m_ptr != nullptr){
                     difference_type result_index = (const_cast<T*>(m_ptr) - *m_bucket_ptr) + (value % BucketSize);
@@ -255,7 +257,8 @@ private:
         }
 
         base_iterator& operator-=(difference_type value) & {
-            if (value < 0) {return *this += value;}
+            if (value < 0) {return *this += std::abs(value);}
+
             if (m_buckets_ptr != nullptr){
                 if (m_ptr != nullptr){
                     difference_type result_index_in_bucket = (const_cast<T*>(m_ptr) - *m_bucket_ptr) - (value % BucketSize);
