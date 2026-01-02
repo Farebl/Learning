@@ -488,7 +488,7 @@ private:
 
 
 
-    NewPtrsAndCapAfterRealloc realloc_with_add_allocated_buckets_to_the_end(size_t count_of_buckets, bool to_reserve_in_end){
+    NewPtrsAndCapAfterRealloc realloc_with_add_allocated_buckets_to_the_end(size_t count_of_buckets, bool to_add_a_reserve){
         NewPtrsAndCapAfterRealloc result;
         if(!m_buckets_ptr){
             result.new_m_buckets_capacity = count_of_buckets;
@@ -521,9 +521,9 @@ private:
         }
         else{
             size_t old_count_of_allocated_buckets = m_last_allocated_bucket_ptr - m_first_allocated_bucket_ptr + 1;
-            size_t using_allocated_buckets = m_last.m_bucket_ptr - m_first.m_bucket_ptr + 1;
             result.new_m_buckets_capacity = old_count_of_allocated_buckets + count_of_buckets;
-            if (to_reserve_in_end) { 
+            if (to_add_a_reserve) { 
+                size_t using_allocated_buckets = m_last.m_bucket_ptr - m_first.m_bucket_ptr + 1;
                 result.new_m_buckets_capacity += (using_allocated_buckets / 2); 
             }
 
@@ -549,8 +549,11 @@ private:
 
             T** old_buckets_pos = m_last_allocated_bucket_ptr;
             result.new_m_first_allocated_bucket_ptr = result.new_m_last_allocated_bucket_ptr - count_of_buckets; 
-            for (T** end_pos = m_first_allocated_bucket_ptr - 1; old_buckets_pos != end_pos; --old_buckets_pos, --result.new_m_first_allocated_bucket_ptr){
+            T** end_pos = m_first_allocated_bucket_ptr - 1;
+            while (old_buckets_pos != end_pos){
                 *result.new_m_first_allocated_bucket_ptr = *old_buckets_pos;
+                --result.new_m_first_allocated_bucket_ptr;
+                --old_buckets_pos;
             }
             ++result.new_m_first_allocated_bucket_ptr;
                        
@@ -564,6 +567,7 @@ private:
             result.new_m_last.m_bucket_ptr = result.new_m_last_allocated_bucket_ptr - count_of_buckets - (m_last_allocated_bucket_ptr - m_last.m_bucket_ptr);
             result.new_m_last.m_ptr = m_last.m_ptr;
         }
+
         return result;
     }
 
