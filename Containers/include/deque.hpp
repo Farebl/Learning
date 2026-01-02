@@ -486,7 +486,9 @@ private:
         size_t new_m_buckets_capacity;
     };
 
-    NewPtrsAndCapAfterRealloc realloc_with_add_allocated_buckets_to_end(size_t count_of_buckets, bool to_reserve_in_end){
+
+
+    NewPtrsAndCapAfterRealloc realloc_with_add_allocated_buckets_to_the_end(size_t count_of_buckets, bool to_reserve_in_end){
         NewPtrsAndCapAfterRealloc result;
         if(!m_buckets_ptr){
             result.new_m_buckets_capacity = count_of_buckets;
@@ -987,7 +989,7 @@ public:
 
     void push_back( const T& value ){ 
         if (!m_buckets_ptr){
-            auto result_of_realloc = realloc_with_add_allocated_buckets_to_end(1, true); 
+            auto result_of_realloc = realloc_with_add_allocated_buckets_to_the_end(1, true); 
              
             try{
                 std::allocator_traits<Allocator>::construct(m_alloc, result_of_realloc.new_m_last.m_ptr, value);
@@ -1050,7 +1052,7 @@ public:
                 return;
             }
             else{ // the worst case --> need reallocation
-                auto result_of_realloc = realloc_with_add_allocated_buckets_to_end(1, true); 
+                auto result_of_realloc = realloc_with_add_allocated_buckets_to_the_end(1, true); 
                 ++result_of_realloc.new_m_last;
                 try{
                     std::allocator_traits<Allocator>::construct(m_alloc, result_of_realloc.new_m_last.m_ptr, value);
