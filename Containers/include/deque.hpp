@@ -1095,30 +1095,21 @@ public:
             m_last_allocated_bucket_ptr  = result_of_realloc.new_m_last_allocated_bucket_ptr;
 
 
-            m_first.m_buckets_ptr = m_buckets_ptr;
-            m_first.m_buckets_capacity = m_buckets_capacity;
-            m_first.m_bucket_ptr = m_first_allocated_bucket_ptr;
-            m_first.m_ptr = *m_first_allocated_bucket_ptr; 
-
+            m_first = result_of_realloc.new_m_first; 
             m_last = m_first;
             
             ++m_size;
-            return;
-        }
-        else if (m_size == 0){
-            std::allocator_traits<Allocator>::construct(m_alloc, m_last.m_ptr, value);
-            ++m_size;
-            return;
         }
         else if ((m_last.m_ptr - *m_last.m_bucket_ptr) < static_cast<long int>(BucketSize - 1)){
             std::allocator_traits<Allocator>::construct(m_alloc, m_last.m_ptr + 1, value);
-            ++m_last.m_ptr;
+            if (m_size != 0) {
+                ++m_last.m_ptr;
+            }
         /*
             it is not appropriate to increment the entire iterator (++m_last) here, since the condition 
             satisfied guarantees that (++m_last) will not require a transition to the next bucket
         */
             ++m_size;
-            return;
         }
         else {
             if ((m_last.m_bucket_ptr - m_buckets_ptr) < static_cast<long int>(m_buckets_capacity - 1)){
@@ -1147,7 +1138,7 @@ public:
                     std::allocator_traits<Allocator>::construct(m_alloc, result_of_realloc.new_m_last.m_ptr, value);
                 }
                 catch(...){
-                    std::allocator_traits<Allocator>::deallocate(m_alloc, *result_of_realloc.new_m_last.m_bucket_ptr, BucketSize);
+                    std::allocator_traits<Allocator>::deallocate(m_alloc, *result_of_realloc.new_m_last_allocated_bucket_ptr, BucketSize);
                     std::allocator_traits<AllocatorPtrOnBucket>::deallocate(m_alloc_ptr_on_bucket, result_of_realloc.new_m_buckets_ptr, result_of_realloc.new_m_buckets_capacity);
                     throw;
                 }
