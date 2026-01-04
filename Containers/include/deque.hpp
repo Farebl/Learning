@@ -1191,7 +1191,94 @@ public:
     }
 
 
-    //void push_front( const T& value );
+    void push_front(const T& value){
+        if (!m_buckets_ptr){
+            auto result_of_realloc = realloc_with_add_allocated_buckets_to_the_beginning(1, true); 
+            // new_m_first & new_m_last points to the last cell in the only one bucket
+            try{
+                std::allocator_traits<Allocator>::construct(m_alloc, result_of_realloc.new_m_first.m_ptr, value);
+            }
+            catch(...){
+                std::allocator_traits<Allocator>::deallocate(m_alloc, *result_of_realloc.new_m_first_allocated_bucket_ptr, BucketSize);
+                std::allocator_traits<AllocatorPtrOnBucket>::deallocate(m_alloc_ptr_on_bucket, result_of_realloc.new_m_buckets_ptr, result_of_realloc.new_m_buckets_capacity);
+                throw;
+            }
+            m_buckets_ptr = result_of_realloc.new_m_buckets_ptr;
+            m_buckets_capacity = result_of_realloc.new_m_buckets_capacity;
+
+            m_first_allocated_bucket_ptr = result_of_realloc.new_m_first_allocated_bucket_ptr;
+            m_last_allocated_bucket_ptr  = result_of_realloc.new_m_last_allocated_bucket_ptr;
+
+            m_first = result_of_realloc.new_m_first; 
+            m_last = m_first;
+            
+            ++m_size;
+        }
+        else if (m_first.m_ptr != *m_first.m_bucket_ptr){
+            --m_first;
+            try{ 
+                std::allocator_traits<Allocator>::construct(m_alloc, m_first.m_ptr, value);
+            }
+            catch(...){
+                ++m_first;
+                throw;
+            }
+            ++m_size;
+        }
+        else if (m_first.m_bucket_ptr != m_buckets_ptr){
+            bool is_allocated_new_bucket = false;
+            if (m_first.m_bucket_ptr == m_first_allocated_bucket_ptr){
+                *(--m_first_allocated_bucket_ptr) = std::allocator_traits<Allocator>::allocate(m_alloc, BucketSize);
+                is_allocated_new_bucket = true;
+            }
+
+            --m_first;
+            try{ 
+                std::allocator_traits<Allocator>::construct(m_alloc, m_first.m_ptr, value);
+            }
+            catch(...){
+                if (is_allocated_new_bucket){    
+                    std::allocator_traits<Allocator>::deallocate(m_alloc, *m_first_allocated_bucket_ptr, BucketSize);
+                }
+                ++m_first_allocated_bucket_ptr;
+                ++m_first;
+                throw;
+            }
+
+            if (m_size == 0){
+                m_last = m_first;
+            }
+            ++m_size;
+        }
+        else { // the worst case --> we need to reallocation of outer array
+            auto result_of_realloc = realloc_with_add_allocated_buckets_to_the_beginning(1, true);
+
+            --result_of_realloc.new_m_first;
+            try{ 
+                std::allocator_traits<Allocator>::construct(m_alloc, result_of_realloc.new_m_first.m_ptr, value);
+            }
+            catch(...){
+                std::allocator_traits<Allocator>::deallocate(m_alloc, *result_of_realloc.new_m_first_allocated_bucket_ptr, BucketSize);
+                std::allocator_traits<AllocatorPtrOnBucket>::deallocate(m_alloc_ptr_on_bucket, result_of_realloc.new_m_buckets_ptr, result_of_realloc.new_m_buckets_capacity);
+                throw;
+            }
+
+            m_first = result_of_realloc.new_m_first;
+            m_last  = result_of_realloc.new_m_last;
+            
+            m_first_allocated_bucket_ptr = result_of_realloc.new_m_first_allocated_bucket_ptr;
+            m_last_allocated_bucket_ptr = result_of_realloc.new_m_last_allocated_bucket_ptr;
+            
+            std::allocator_traits<AllocatorPtrOnBucket>::deallocate(m_alloc_ptr_on_bucket, m_buckets_ptr, m_buckets_capacity);
+            m_buckets_ptr = result_of_realloc.new_m_buckets_ptr;
+            m_buckets_capacity = result_of_realloc.new_m_buckets_capacity;
+            ++m_size;
+            return;
+        }
+        
+        
+        
+    }
 
     //void push_front( T&& value );
 
