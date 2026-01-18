@@ -391,7 +391,7 @@ private:
         }
 
 
-        base_iterator& operator[](size_t index){return *(*this+index);}
+        reference operator[](size_t index){return *(*this + index);}
 
 
         template<bool OtherIsConst>
@@ -489,7 +489,7 @@ private:
             result.new_m_buckets_ptr = std::allocator_traits<AllocatorPtrOnBucket>::allocate(m_alloc_ptr_on_bucket, result.new_m_buckets_capacity);
             
             T** new_first_allocated_bucket_ptr = result.new_m_buckets_ptr;
-            T** new_last_allocated_bucket_ptr = result.new_first_allocated_bucket_ptr;
+            T** new_last_allocated_bucket_ptr = new_first_allocated_bucket_ptr;
             
             try{
                 for (size_t successful_allocated_buckets = 0; successful_allocated_buckets < count_of_buckets; ++successful_allocated_buckets, ++new_last_allocated_bucket_ptr){
@@ -1239,6 +1239,7 @@ public:
                                 std::allocator_traits<Allocator>::construct(m_alloc, current_it.m_ptr, std::move(*second_current_it.m_ptr));
                                 *second_current_it.m_ptr = value;
                                 ++current_it; 
+                                ++second_current_it;
                             }
                             --current_it;
 
@@ -1676,7 +1677,8 @@ public:
         else if (m_first.m_bucket_index != 0){
             bool is_allocated_new_bucket = false;
             if (m_first.m_bucket_index == m_first_allocated_bucket_index){
-                m_buckets_ptr[m_first_allocated_bucket_index - 1] = std::allocator_traits<Allocator>::allocate(m_alloc, BucketSize);
+                --m_first_allocated_bucket_index;
+                m_buckets_ptr[m_first_allocated_bucket_index] = std::allocator_traits<Allocator>::allocate(m_alloc, BucketSize);
                 is_allocated_new_bucket = true;
             }
 
@@ -1688,6 +1690,7 @@ public:
                 if (is_allocated_new_bucket){    
                     std::allocator_traits<Allocator>::deallocate(m_alloc, m_buckets_ptr[m_first_allocated_bucket_index - 1], BucketSize);
                 }
+                ++m_first_allocated_bucket_index;
                 ++m_first;
                 throw;
             }
