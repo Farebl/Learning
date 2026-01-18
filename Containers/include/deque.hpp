@@ -346,22 +346,13 @@ private:
 
         base_iterator operator+(difference_type value) const {
             base_iterator temp = *(this);
-            if (value<0)
-                temp-=value;
-            else
-                temp+=value;
-
+            temp+=value;
             return temp;
         }
+
         template <bool OtherIsConst>
         friend base_iterator operator+(difference_type value, const base_iterator<OtherIsConst>& it) {
-            base_iterator temp = it;
-            if (value<0)
-                temp-=value;
-            else
-                temp+=value;
-
-            return temp; 
+            return (it + value); 
         }
 
 
@@ -1224,12 +1215,15 @@ public:
                         size_t reminder = count - (m_last - pos) - 1;
                         iterator current_it = result_of_realloc.new_m_last + 1;
                         
-                        try{ // basic exception safety
-                            while (reminder > 0){
+                        try{ // basic exception guarante
+                            for (; reminder > 0; --reminder, ++current_it){
                                 std::allocator_traits<Allocator>::construct(m_alloc, current_it.m_ptr, value);
-                                ++current_it; 
-                                --reminder; 
                             }
+                        /*
+                                strong exception guarantee
+                            ------------------------------------------------------------------------------------------
+                                basic exception guarantee
+                        */
                             
                             T* end_pos_ptr = (result_of_realloc.new_m_last + 1).m_ptr;
                             iterator second_current_it = result_of_realloc.new_m_last - (m_last - pos);
@@ -1261,10 +1255,15 @@ public:
                                 std::allocator_traits<Allocator>::destroy(m_alloc, current_it.m_ptr);
                                 --current_it;
                             }
+
+                            size_t count_of_new_bukets = 
+                                (result_of_realloc.new_m_last_allocated_bucket_index - result_of_realloc.new_m_last.m_bucket_index)
+                                -
+                                (m_last_allocated_bucket_index - m_last.m_bucket_index); 
+                            
                             new_last_allocated_bucket_ptr = result_of_realloc.new_m_buckets_ptr + result_of_realloc.new_m_last_allocated_bucket_index;
-                            while(*new_last_allocated_bucket_ptr != *last_allocated_bucket_ptr){ 
+                            for(; count_of_new_bukets > 0; --new_last_allocated_bucket_ptr){ 
                                 std::allocator_traits<Allocator>::deallocate(m_alloc, *new_last_allocated_bucket_ptr, BucketSize);
-                                --new_last_allocated_bucket_ptr;
                             } 
                             std::allocator_traits<AllocatorPtrOnBucket>::deallocate(m_alloc_ptr_on_bucket, result_of_realloc.new_m_buckets_ptr, result_of_realloc.new_m_buckets_capacity);  
                             throw;
