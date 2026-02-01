@@ -672,6 +672,19 @@ private:
 
 public:
 
+    constexpr size_t bucketSize() const {return BucketSize;}
+
+    void reserve_before_begin(size_t count){
+        size_t needed_buckets_count = (count + BucketSize - 1) / BucketSize;
+        realloc_with_add_allocated_buckets_to_the_beginning(needed_buckets_count - m_buckets_capacity, false);
+    }
+
+    void reserve_after_end(size_t count){
+        size_t needed_buckets_count = (count + BucketSize - 1) / BucketSize;
+        realloc_with_add_allocated_buckets_to_the_end(needed_buckets_count - m_buckets_capacity, false);
+    }
+
+
     explicit deque(): 
         m_buckets_array(nullptr), 
         m_first_allocated_bucket_index(0),
