@@ -18,9 +18,8 @@ template <typename T, typename Alloc = std::allocator<T>, size_t BucketSize = ((
 class deque{
 
     static_assert(BucketSize > 0, "The bucket size must be 1 or greater");
-    static_assert(BucketSize <= 104'857'600/sizeof(T), "The bucket size cannot exceed 100 MB");
+    static_assert(BucketSize <= (1024 * 1024 * 100) / sizeof(T), "The bucket size cannot exceed 100 MB");
         
-private:
     template <bool IsConst = false>
     class base_iterator{
 
@@ -932,6 +931,9 @@ public:
     
 
     iterator insert(const_iterator pos, size_type count, const T& value){
+        if (count == 0) 
+            return {pos.m_buckets_array, pos.m_buckets_capacity, const_cast<T*>(pos.m_ptr), pos.m_bucket_index, pos.m_cell_index};
+
         if (m_buckets_array == nullptr){
             size_t count_of_needed_buckets = (count % BucketSize == 0) ? count / BucketSize : (count / BucketSize) + 1;
             auto result_of_realloc = realloc_with_add_allocated_buckets_to_the_end(count_of_needed_buckets, false);
