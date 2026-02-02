@@ -502,6 +502,7 @@ private:
                     std::allocator_traits<allocator_type>::deallocate(m_alloc, *new_last_allocated_bucket_ptr, BucketSize);
                     --new_last_allocated_bucket_ptr;
                 }
+                std::allocator_traits<allocator_outer_array_type>::deallocate(m_outer_array_alloc, result.new_m_buckets_array, result.new_m_buckets_capacity);
                 throw;
             }
             result.new_m_first_allocated_bucket_index = new_first_allocated_bucket_ptr - result.new_m_buckets_array;
@@ -545,6 +546,7 @@ private:
                     --new_last_allocated_bucket_ptr;
                     --successful_allocated_buckets;
                 }
+                std::allocator_traits<allocator_outer_array_type>::deallocate(m_outer_array_alloc, result.new_m_buckets_array, result.new_m_buckets_capacity);
                 throw;
             }
 
@@ -597,6 +599,7 @@ private:
                     std::allocator_traits<allocator_type>::deallocate(m_alloc, *new_last_allocated_bucket_ptr, BucketSize);
                     --new_last_allocated_bucket_ptr;
                 }
+                std::allocator_traits<allocator_outer_array_type>::deallocate(m_outer_array_alloc, result.new_m_buckets_array, result.new_m_buckets_capacity);
                 throw;
             }
 
@@ -636,6 +639,7 @@ private:
                     --new_last_allocated_bucket_ptr;
                     --successful_allocated_buckets;
                 }
+                std::allocator_traits<allocator_outer_array_type>::deallocate(m_outer_array_alloc, result.new_m_buckets_array, result.new_m_buckets_capacity);
                 throw;
             }
 
