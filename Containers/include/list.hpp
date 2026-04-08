@@ -716,41 +716,11 @@ public:
 
 
     void push_back(const T& value){
-        Node* new_node;
-        new_node = std::allocator_traits<NodeAllocator>::allocate(alloc_, 1);
-        try{ 
-            std::allocator_traits<NodeAllocator>::construct(alloc_, &new_node->value, value);
-        }
-        catch(...){
-            std::allocator_traits<NodeAllocator>::deallocate(alloc_, new_node, 1);
-            throw;
-        }
-        
-        BaseNode* fake_node_prev = fake_node_.prev;  
-        fake_node_prev->next = new_node;
-        new_node->prev = fake_node_prev;
-        new_node->next = &fake_node_;
-        fake_node_.prev = new_node;
-        ++sz_;
+        emplace_back(value);
     }
     
     void push_back(T&& value){
-        Node* new_node;
-        new_node = std::allocator_traits<NodeAllocator>::allocate(alloc_, 1);
-        try{ 
-            std::allocator_traits<NodeAllocator>::construct(alloc_, &new_node->value, std::move(value));
-        }
-        catch(...){
-            std::allocator_traits<NodeAllocator>::deallocate(alloc_, new_node, 1);
-            throw;
-        }
-        
-        BaseNode* fake_node_prev = fake_node_.prev;  
-        fake_node_prev->next = new_node;
-        new_node->prev = fake_node_prev;
-        new_node->next = &fake_node_;
-        fake_node_.prev = new_node;
-        ++sz_;
+        emplace_back(std::move(value));
     }
 
 
@@ -792,41 +762,11 @@ public:
 
 
     void push_front(const T& value){
-        Node* new_node;
-        new_node = std::allocator_traits<NodeAllocator>::allocate(alloc_, 1);
-        try{
-            std::allocator_traits<NodeAllocator>::construct(alloc_, &new_node->value, value);
-        }
-        catch(...){
-            std::allocator_traits<NodeAllocator>::deallocate(alloc_, new_node, 1);
-            throw;
-        }
-
-        BaseNode* fake_node_next = fake_node_.next;  
-        fake_node_.next = new_node;
-        new_node->prev = &fake_node_;
-        new_node->next = fake_node_next;           
-        fake_node_next->prev = new_node;
-        ++sz_;
+        emplace_front(value);
     }
     
     void push_front(T&& value){ 
-        Node* new_node;
-        new_node = std::allocator_traits<NodeAllocator>::allocate(alloc_, 1);
-        try{
-            std::allocator_traits<NodeAllocator>::construct(alloc_, &new_node->value, std::move(value));
-        }
-        catch(...){
-            std::allocator_traits<NodeAllocator>::deallocate(alloc_, new_node, 1);
-            throw;
-        }
-
-        BaseNode* fake_node_next = fake_node_.next;  
-        fake_node_.next = new_node;
-        new_node->prev = &fake_node_;
-        new_node->next = fake_node_next;           
-        fake_node_next->prev = new_node;
-        ++sz_;
+        emplace_front(std::move(value));
     }
 
 
